@@ -1,0 +1,38 @@
+aiofiles==25.1.0
+altgraph @ file:///AppleInternal/Library/BuildRoots/4~B7IEugDHS-fAL-bTRqAKCb_qmc84naJzmK7469Q/Library/Caches/com.apple.xbs/Sources/python3/altgraph-0.17.2-py2.py3-none-any.whl
+annotated-doc==0.0.5
+annotated-types==0.7.0
+anyio==4.12.1
+bcrypt==5.0.0
+beautifulsoup4==4.15.0
+click==8.1.8
+dnspython==2.7.0
+email-validator==2.3.0
+exceptiongroup==1.3.1
+fastapi==0.128.8
+fb-idb==1.1.7
+fonttools==4.60.2
+future @ file:///AppleInternal/Library/BuildRoots/4~B7IEugDHS-fAL-bTRqAKCb_qmc84naJzmK7469Q/Library/Caches/com.apple.xbs/Sources/python3/future-0.18.2-py3-none-any.whl
+grpclib==0.4.8
+h11==0.16.0
+h2==4.3.0
+hpack==4.1.0
+hyperframe==6.1.0
+idna==3.19
+macholib @ file:///AppleInternal/Library/BuildRoots/4~B7IEugDHS-fAL-bTRqAKCb_qmc84naJzmK7469Q/Library/Caches/com.apple.xbs/Sources/python3/macholib-1.15.2-py2.py3-none-any.whl
+multidict==6.7.1
+pillow==11.3.0
+protobuf==6.33.6
+pydantic==2.13.5
+pydantic_core==2.46.5
+PyJWT==2.13.0
+pymongo==4.17.0
+pypdf==6.17.0
+PyYAML==6.0.3
+six @ file:///AppleInternal/Library/BuildRoots/4~B7IEugDHS-fAL-bTRqAKCb_qmc84naJzmK7469Q/Library/Caches/com.apple.xbs/Sources/python3/six-1.15.0-py2.py3-none-any.whl
+soupsieve==2.8.4
+starlette==0.49.3
+treelib==1.8.0
+typing-inspection==0.4.2
+typing_extensions==4.15.0
+uvicorn==0.39.0
