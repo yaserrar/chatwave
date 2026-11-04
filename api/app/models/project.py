@@ -1,6 +1,6 @@
 from datetime import datetime
 import uuid
-from sqlalchemy import Column, Text, func, String, DateTime
+from sqlalchemy import Column, Text, func, String, DateTime, Integer
 from sqlalchemy.orm import Mapped, mapped_column
 from app.core.db import Base
 

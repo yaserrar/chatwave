@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, status, HTTPException
-from sqlalchemy import select
+from sqlalchemy import select, update
 import uuid
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -50,21 +50,22 @@ async def create_project(
 
 
 
-@router.put("/{project_id}", response_model=ProjectRead, status_code=status.HTTP_200_OK)
-async def  update_project(
+@router.put("/{project_id}", response_model=ProjectRead)
+async def update_project(
     project_id: uuid.UUID,
     payload: ProjectUpdate,
     session: AsyncSession = Depends(get_session),
 ):
-    project = await session.get(Project, project_id)
-    if project is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+    query = update(Project).where(Project.id==project_id).values(**payload.model_dump(exclude_unset=True)).returning(Project)
+    result = await session.execute(query)
 
-    project.name = payload.name
-    project.description = payload.description
-    await session.commit()  
-    await session.refresh(project)
-    return project
+    new_project = result.scalar_one_or_none()
+
+    if new_project is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not edited")
+
+    await session.commit()
+    return new_project
 
 
 @router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
