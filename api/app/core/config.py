@@ -1,12 +1,8 @@
-import os
-from dotenv import load_dotenv
-from pydantic import BaseSettings, SettingsConfigDict
-
-load_dotenv()
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
-    cors_allow_origins: list[str] = [origin.strip() for origin in os.getenv("CORS_ALLOW_ORIGINS", "").split(",")]
-    
+    cors_allow_origins: list[str]
+    database_url: str
     model_config = SettingsConfigDict(env_file=".env")
 
 
