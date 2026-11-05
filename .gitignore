@@ -9,3 +9,5 @@ pgvector/
 docs/
 /.env
 /.env.api
+.env.api.prod
+.env.prod
