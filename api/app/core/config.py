@@ -28,6 +28,13 @@ class Settings(BaseSettings):
     session_max_age_days: int = 90
     cookie_secure: bool = False
 
+    # Limits (rate limits are per process, in memory)
+    max_projects_per_user: int = 5
+    max_documents_per_project: int = 10
+    max_messages_per_minute: int = 10
+    max_requests_per_minute: int = 120
+    max_guests_per_ip_per_hour: int = 10
+
     model_config = SettingsConfigDict(env_file=".env")
 
 

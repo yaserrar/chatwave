@@ -5,7 +5,7 @@ import uuid
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_session
-from app.dependencies import get_owned_conversation, get_owned_project
+from app.dependencies import get_owned_conversation, get_owned_project, limit_messages
 from app.models.project import Project
 from app.models.conversation import Conversation
 from app.models.message import Message
@@ -56,7 +56,9 @@ async def get_messages(
     return result.scalars().all()
 
 
-@router.post("/conversations/{conversation_id}/ask", response_model=MessageRead)
+@router.post(
+    "/conversations/{conversation_id}/ask", response_model=MessageRead, dependencies=[Depends(limit_messages)]
+)
 async def ask(
     conversation_id: uuid.UUID,
     payload: AskRequest,

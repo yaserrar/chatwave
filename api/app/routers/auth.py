@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
+from app.core.rate_limit import client_ip, limiter
 from app.core.db import get_session
 from app.core.security import create_session_token, read_session_token
 from app.dependencies import get_current_user
@@ -28,6 +29,12 @@ async def anonymous(request: Request, response: Response, session: AsyncSession 
         if existing:
             return existing
 
+    limiter.check(
+        f"guest:{client_ip(request)}",
+        settings.max_guests_per_ip_per_hour,
+        3600,
+        "Too many guest sessions from this network, try again later",
+    )
     user = User(name=f"Guest-{secrets.token_hex(2).upper()}")
     session.add(user)
     await session.commit()

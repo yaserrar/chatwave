@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, status, HTTPException, UploadFile, BackgroundTasks
 from app.services.ingestion import process_document
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 import uuid
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -45,6 +45,13 @@ async def create_document(
 ):
     # do 3 type checks using env vars
 
+    settings = get_settings()
+    doc_count = await session.scalar(select(func.count()).select_from(Document).where(Document.project_id == project_id))
+    if doc_count >= settings.max_documents_per_project:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, f"Document limit reached ({settings.max_documents_per_project} per project)"
+        )
+
     document_id = uuid.uuid4()
     filename = file.filename
     mime_type = file.content_type
@@ -52,7 +59,6 @@ async def create_document(
     content = await file.read()
     size = len(content)
 
-    settings = get_settings()
     if not ext or ext not in settings.allowed_extensions:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid file type")
     if size > settings.max_file_size:

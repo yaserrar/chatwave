@@ -6,6 +6,7 @@ from uuid import UUID
 from app.core.config import get_settings
 from app.core.security import read_session_token
 from app.core.db import get_session
+from app.core.rate_limit import limiter
 from app.models import User, Project, Conversation
 
 
@@ -15,6 +16,7 @@ async def get_current_user(request: Request, session: AsyncSession = Depends(get
     user = await session.get(User, user_id) if user_id else None
     if not user:
         raise HTTPException(401, "Not authenticated")
+    limiter.check(f"req:{user.id}", get_settings().max_requests_per_minute, 60, "Too many requests, slow down")
     return user
 
 
@@ -38,3 +40,8 @@ async def get_owned_conversation(
     if not conversation:
         raise HTTPException(404, "Conversation not found")
     return conversation
+
+
+async def limit_messages(user: User = Depends(get_current_user)) -> None:
+    n = get_settings().max_messages_per_minute
+    limiter.check(f"ask:{user.id}", n, 60, f"You can send at most {n} messages per minute")

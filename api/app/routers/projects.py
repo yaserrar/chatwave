@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, status, HTTPException
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 import uuid
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,6 +14,7 @@ from app.models.project import Project
 import logging
 import asyncio
 from app.services import storage
+from app.core.config import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +39,10 @@ async def create_project(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
+    max_projects = get_settings().max_projects_per_user
+    count = await session.scalar(select(func.count()).select_from(Project).where(Project.created_by == user.id))
+    if count >= max_projects:
+        raise HTTPException(status.HTTP_409_CONFLICT, f"Project limit reached ({max_projects})")
     project = Project(**payload.model_dump(), created_by=user.id)
     session.add(project)
     await session.commit()
