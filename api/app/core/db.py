@@ -3,9 +3,9 @@ from sqlalchemy.orm import DeclarativeBase
 from app.core.config import get_settings
 from collections.abc import AsyncGenerator
 
-DATABASE_URL = get_settings().database_url
+settings = get_settings()
 
-engine = create_async_engine(DATABASE_URL, echo=True)
+engine = create_async_engine(settings.database_url, echo=settings.sql_echo)
 SessionLocal = async_sessionmaker(
     bind=engine,
     expire_on_commit=False

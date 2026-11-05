@@ -7,3 +7,5 @@
 pgvector/
 .vscode/
 docs/
+/.env
+/.env.api

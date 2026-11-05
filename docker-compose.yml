@@ -1,0 +1,72 @@
+# Chatwave app stack. Lives in ~/chatwave on the server; the deploy workflow
+# copies this file there and restarts with the new image tag.
+# Needs the server's infra stack running: it provides Traefik on the `proxy`
+# network. Chatwave has its own Postgres with pgvector (the shared one has no
+# pgvector), on a private network. See DEPLOY.md.
+name: chatwave
+
+x-logging: &logging
+  driver: json-file
+  options: { max-size: "10m", max-file: "3" }
+
+services:
+  db:
+    image: pgvector/pgvector:pg17
+    restart: unless-stopped
+    logging: *logging
+    environment:
+      POSTGRES_USER: chatwave
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: chatwave
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U chatwave -d chatwave"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks: [internal]
+
+  api:
+    image: ghcr.io/${IMAGE_OWNER}/chatwave-api:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    logging: *logging
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file: .env.api
+    environment:
+      DATABASE_URL: postgresql+asyncpg://chatwave:${DB_PASSWORD}@db:5432/chatwave
+      CORS_ALLOW_ORIGINS: '["https://${DOMAIN}"]'
+      COOKIE_SECURE: "true"
+    labels:
+      - traefik.enable=true
+      # Longer rule = higher priority, so /api wins over the web router below.
+      - traefik.http.routers.chatwave-api.rule=Host(`${DOMAIN}`) && PathPrefix(`/api`)
+      - traefik.http.routers.chatwave-api.entrypoints=websecure
+      - traefik.http.routers.chatwave-api.tls.certresolver=letsencryptresolver
+      - traefik.http.routers.chatwave-api.middlewares=secure-headers@docker
+      - traefik.http.services.chatwave-api.loadbalancer.server.port=8000
+    # proxy: reached by Traefik. internal: reaches the db.
+    networks: [proxy, internal]
+
+  web:
+    image: ghcr.io/${IMAGE_OWNER}/chatwave-web:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    logging: *logging
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.chatwave-web.rule=Host(`${DOMAIN}`)
+      - traefik.http.routers.chatwave-web.entrypoints=websecure
+      - traefik.http.routers.chatwave-web.tls.certresolver=letsencryptresolver
+      - traefik.http.routers.chatwave-web.middlewares=secure-headers@docker
+      - traefik.http.services.chatwave-web.loadbalancer.server.port=80
+    networks: [proxy]
+
+volumes:
+  db-data:
+
+networks:
+  proxy:
+    external: true
+  internal:
