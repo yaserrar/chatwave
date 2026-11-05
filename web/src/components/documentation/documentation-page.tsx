@@ -87,7 +87,7 @@ function Overview() {
       <div className="grid gap-3 lg:grid-cols-3">
         {[
           { n: '1', title: 'Create a project', text: 'POST /api/projects → one row in projects.' },
-          { n: '2', title: 'Upload documents', text: 'POST …/documents → file on disk, row "pending", background task makes chunks + vectors.' },
+          { n: '2', title: 'Upload documents', text: 'POST …/documents → file to S3, row "pending", background task makes chunks + vectors.' },
           { n: '3', title: 'Ask a question', text: 'POST /api/conversations/{id}/ask → search the chunks, Claude answers, both messages saved.' },
         ].map((flow) => (
           <div key={flow.n} className="flex gap-3 rounded-xl border bg-card p-4 shadow-xs">
@@ -112,7 +112,7 @@ function Architecture() {
       index={2}
       eyebrow="Big picture"
       title="Architecture"
-      intro="Three programs run on your machine: the web app, the API and the database. The API also talks to the disk and to two AI services."
+      intro="Three programs run on your machine: the web app, the API and the database. Files live in a private Amazon S3 bucket, and the API calls two AI services."
     >
       <ArchitectureDiagram />
       <div className="grid gap-3 lg:grid-cols-2">
@@ -134,7 +134,8 @@ function Architecture() {
             ['Validation', 'Pydantic v2 schemas, pydantic-settings'],
             ['Database', 'SQLAlchemy 2 (async) + asyncpg, Alembic'],
             ['Vectors', 'PostgreSQL 16 + pgvector 0.8.1'],
-            ['Files', 'pypdf (PDF), plain read for MD/TXT'],
+            ['Storage', 'Amazon S3 via boto3, presigned links'],
+            ['Text', 'pypdf (PDF), UTF-8 decode for MD/TXT'],
             ['AI', 'OpenAI embeddings, Claude (anthropic SDK)'],
           ]}
         />
@@ -310,8 +311,9 @@ function Ingestion() {
             where: 'routers/documents.py · create_document',
             detail: (
               <>
-                The API checks the same rules again (400 if wrong), writes the bytes to <C>uploads/&lt;project_id&gt;/&lt;document_id&gt;.ext</C>,
-                inserts the row with status <C>pending</C>, and returns <C>201</C> right away.
+                The API checks the same rules again (400 if wrong), uploads the bytes to S3 at
+                <C>projects/&lt;project_id&gt;/&lt;document_id&gt;.ext</C> (<C>storage.upload_file</C>, in a thread), and only then
+                inserts the row with status <C>pending</C> and returns <C>201</C>. If S3 fails, no row is created (502).
               </>
             ),
           },
@@ -321,12 +323,13 @@ function Ingestion() {
             detail: 'FastAPI runs it after the response. It opens its own session: the request’s one is already closed.',
           },
           {
-            title: 'Extract the text',
-            where: 'services/extraction.py · extract_pages',
+            title: 'Download and extract the text',
+            where: 'storage.download_file · extraction.py · extract_pages',
             detail: (
               <>
-                PDF: <C>pypdf</C>, page by page, empty pages skipped. MD/TXT: the whole file as page 1. Runs in
-                <C>asyncio.to_thread</C> so a big PDF does not freeze the API. No text at all (a scanned PDF) raises an error.
+                The file’s bytes come back from S3, then: PDF with <C>pypdf</C> (through <C>BytesIO</C>), page by page, empty pages
+                skipped; MD/TXT decoded as UTF-8, the whole file as page 1. Both run in <C>asyncio.to_thread</C> so the API keeps
+                answering. No text at all (a scanned PDF) raises an error.
               </>
             ),
           },
@@ -354,6 +357,38 @@ function Ingestion() {
       />
       <DocSubheading>Document statuses</DocSubheading>
       <StatusMachine />
+      <DocSubheading>Preview and download</DocSubheading>
+      <Pipeline
+        steps={[
+          {
+            title: 'Ask the API for a link',
+            where: 'GET …/documents/{id}/url?download=false|true',
+            detail: 'The API finds the document (both ids must match, so a project never gets another project’s file) and signs a link.',
+          },
+          {
+            title: 'A presigned S3 link',
+            where: 'services/storage.py · presigned_url',
+            detail: (
+              <>
+                Valid 5 minutes (<C>PRESIGNED_URL_EXPIRES</C>). S3 applies two overrides when it is opened: <C>inline</C> or
+                <C>attachment; filename*=UTF-8''…</C> (the original name, accents kept), and the content type (<C>.md</C> and
+                <C>.txt</C> as <C>text/plain; charset=utf-8</C>). Signing is local: no call to AWS.
+              </>
+            ),
+          },
+          {
+            title: 'The browser reads S3 directly',
+            where: 'web · document-preview.tsx',
+            detail:
+              'PDF in an iframe (the browser’s own viewer), Markdown fetched as text and rendered, text shown as is. The file never goes through the API. A link is refreshed before it expires.',
+          },
+        ]}
+      />
+      <Callout kind="tip" title="Why the bucket is private, with a CORS rule">
+        Public access stays blocked: the only way to read a file is a link the API signed for that one file, a few minutes long.
+        The bucket’s CORS rule allows <C>GET</C> from <C>http://localhost:5173</C>, because the Markdown and text previews fetch the
+        file from the browser. The API’s AWS user can only put, get, delete and list in this one bucket.
+      </Callout>
     </DocSection>
   );
 }
@@ -442,7 +477,7 @@ function ApiReference() {
       title="API reference"
       intro={
         <>
-          14 endpoints, all under <C>/api</C>. The interactive version is FastAPI’s own <C>/docs</C> page on the API server. Errors
+          15 endpoints, all under <C>/api</C>. The interactive version is FastAPI’s own <C>/docs</C> page on the API server. Errors
           always come back as <C>{'{"detail": …}'}</C>; the web app shows that text in its messages.
         </>
       }
@@ -505,7 +540,7 @@ function Frontend() {
       <DocSubheading>Pages</DocSubheading>
       <div className="grid gap-3 md:grid-cols-3">
         <InfoTile icon={Book1} title="/">Projects overview: cards with document counts, create, edit, delete.</InfoTile>
-        <InfoTile icon={Data} title="/projects/$projectId">Documents panel (upload, statuses, details) and the chat panel.</InfoTile>
+        <InfoTile icon={Data} title="/projects/$projectId">Documents panel (upload, statuses, details, preview, download) and the chat panel.</InfoTile>
         <InfoTile icon={Cpu} title="/documentation">This page.</InfoTile>
       </div>
       <DocSubheading>How data stays fresh</DocSubheading>
@@ -569,8 +604,9 @@ class DocumentRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)`}</CodeBlock>
       </div>
       <Callout kind="warning" title="Order of deletes">
-        Deleting a document or a project first commits the database change, then removes the files. If the commit failed, the files
-        are still there and nothing is broken; the other order could leave rows pointing to missing files.
+        Deleting a document or a project first commits the database change, then removes the files from S3 (a project’s whole
+        projects/&lt;id&gt;/ folder at once). If the commit failed, the files are still there and nothing is broken; the other order
+        could leave rows pointing to missing files. If S3 fails after the commit, the error is logged and the client still gets 204.
       </Callout>
     </DocSection>
   );
@@ -616,6 +652,7 @@ function Configuration() {
         </table>
       </div>
       <CodeBlock label="Run everything (three terminals)">{`# 1. Database: Homebrew PostgreSQL 16 on port 5433 (must be running)
+#    Files: the S3 bucket and its key in api/.env (AWS_*, S3_BUCKET)
 
 # 2. API, from api/
 source env/bin/activate

@@ -8,6 +8,12 @@ from app.models.project import Project
 from app.models.document import Document
 from app.schemas.project import ProjectCreate, ProjectRead, ProjectUpdate
 from pathlib import Path
+from app.models.project import Project
+import logging
+import asyncio
+from app.services import storage
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["projects"])
 
@@ -88,7 +94,8 @@ async def delete_project(
     await session.delete(project)
     await session.commit()
 
-    for document in documents:
-        Path(document.storage_path).unlink(missing_ok=True)
-
+    try:
+        await asyncio.to_thread(storage.delete_folder, f"projects/{project_id}")
+    except Exception as e:
+        logger.exception("Failed to delete project folder %s", f"projects/{project_id}")
 

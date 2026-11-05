@@ -94,12 +94,12 @@ export function ArchitectureDiagram() {
         />
       </div>
       <div className="grid gap-3 sm:grid-cols-3">
-        <Node icon={Folder2} title="File storage" subtitle="api/uploads/<project_id>/" tone="external" />
+        <Node icon={Folder2} title="Amazon S3" subtitle="private bucket · projects/<project_id>/" tone="external" />
         <Node icon={Cloud} title="OpenAI" subtitle="text-embedding-3-small" tone="external" />
         <Node icon={MagicStar} title="Claude" subtitle="claude-opus-5-5 · answers" tone="external" />
       </div>
       <figcaption className="text-xs text-muted-foreground">
-        Solid boxes are your code and database; dashed boxes are the disk and the two AI providers the API calls.
+        Solid boxes are your code and database; dashed boxes are external services. The browser also reads files straight from S3 through short-lived signed links (preview, download).
       </figcaption>
     </figure>
   );
@@ -311,7 +311,7 @@ export function StatusMachine() {
   return (
     <figure className="flex max-w-3xl flex-col gap-3 rounded-2xl border bg-subtle/60 p-4">
       <div className="flex flex-col items-center gap-2 sm:flex-row sm:items-start sm:justify-center sm:gap-3">
-        {chip('pending', 'bg-doc-pending-subtle text-doc-pending-ink', 'Row created by the upload, file on disk')}
+        {chip('pending', 'bg-doc-pending-subtle text-doc-pending-ink', 'Row created by the upload, file in S3')}
         <ArrowRight aria-hidden className="size-4 rotate-90 text-muted-foreground sm:mt-1.5 sm:rotate-0" />
         {chip('processing', 'bg-doc-processing-subtle text-doc-processing-ink', 'Background task started')}
         <ArrowRight aria-hidden className="size-4 rotate-90 text-muted-foreground sm:mt-1.5 sm:rotate-0" />

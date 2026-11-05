@@ -1,6 +1,8 @@
 import asyncio
 import logging
 import uuid
+from pathlib import Path
+from app.services import storage
 
 from sqlalchemy import delete
 
@@ -31,7 +33,9 @@ async def process_document(document_id: uuid.UUID) -> None:
 
         try:
             # pypdf is slow, blocking code: run it in a thread so the rest of the API keeps answering
-            pages = await asyncio.to_thread(extract_pages, doc.storage_path)
+            content = await asyncio.to_thread(storage.download_file, doc.storage_path)
+            ext = Path(doc.storage_path).suffix.lower()
+            pages = await asyncio.to_thread(extract_pages, content, ext)
             chunks = chunk_pages(pages)
             vectors = await embed_texts([text for _, _, text in chunks])
 

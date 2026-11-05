@@ -1,4 +1,3 @@
-
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field
 from typing import Optional
@@ -9,7 +8,7 @@ class DocumentRead(BaseModel):
 
     id: uuid.UUID
     project_id: uuid.UUID
-    filename: str 
+    filename: str
     mime_type: str
     size: int
     status: str
@@ -18,4 +17,13 @@ class DocumentRead(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-    model_config = ConfigDict(from_attributes=True) 
+    model_config = ConfigDict(from_attributes=True)
+
+
+class DocumentUrlRead(BaseModel):
+
+    id: uuid.UUID
+    url: str
+    expires_in: int
+
+    model_config = ConfigDict(from_attributes=True)

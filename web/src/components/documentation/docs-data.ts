@@ -23,14 +23,14 @@ export const TABLES: TableDoc[] = [
   {
     name: 'documents',
     model: 'app/models/document.py → Document',
-    purpose: 'One uploaded file. The file itself lives on disk; this row holds its metadata and processing status.',
+    purpose: 'One uploaded file. The file itself lives in the private S3 bucket; this row holds its metadata and processing status.',
     columns: [
-      { name: 'id', type: 'uuid', key: 'PK', note: 'Also the file name on disk: uploads/<project_id>/<id>.<ext>.' },
+      { name: 'id', type: 'uuid', key: 'PK', note: 'Also the file name in S3: projects/<project_id>/<id>.<ext>.' },
       { name: 'project_id', type: 'uuid', key: 'FK', note: '→ projects.id, ON DELETE CASCADE. Indexed.' },
       { name: 'filename', type: 'varchar', note: 'Original name, for display only (never used as a path).' },
       { name: 'mime_type', type: 'varchar', note: 'As sent by the browser, e.g. application/pdf.' },
       { name: 'size', type: 'integer', note: 'In bytes. Max 10 MB (MAX_FILE_SIZE).' },
-      { name: 'storage_path', type: 'varchar', note: 'Where the file is on disk. Not exposed by the API.' },
+      { name: 'storage_path', type: 'varchar', note: 'The file’s S3 key, e.g. projects/<project_id>/<id>.pdf. Not exposed by the API.' },
       { name: 'status', type: 'varchar', note: 'pending → processing → ready | failed. Default "pending".' },
       { name: 'error_message', type: 'text', nullable: true, note: 'Why processing failed (shown in the web app).' },
       { name: 'page_count', type: 'integer', nullable: true, note: 'Set when processing succeeds.' },
@@ -117,7 +117,7 @@ export const ENDPOINT_GROUPS: { title: string; file: string; endpoints: Endpoint
       { method: 'POST', path: '/api/projects', summary: 'Create a project.', request: '{ name, description? }', response: '201 · ProjectRead', errors: '422 empty or too-long name' },
       { method: 'GET', path: '/api/projects/{project_id}', summary: 'One project.', response: 'ProjectRead', errors: '404' },
       { method: 'PUT', path: '/api/projects/{project_id}', summary: 'Update only the fields sent (UPDATE … RETURNING).', request: '{ name?, description? }', response: 'ProjectRead', errors: '404 · 422' },
-      { method: 'DELETE', path: '/api/projects/{project_id}', summary: 'Delete the row (cascades to everything inside), then its files.', response: '204', errors: '404' },
+      { method: 'DELETE', path: '/api/projects/{project_id}', summary: 'Delete the row (cascades to everything inside), then its whole S3 folder projects/<id>/.', response: '204', errors: '404' },
     ],
   },
   {
@@ -128,13 +128,21 @@ export const ENDPOINT_GROUPS: { title: string; file: string; endpoints: Endpoint
       {
         method: 'POST',
         path: '/api/projects/{project_id}/documents',
-        summary: 'Upload one file (multipart field "file"). Returns at once; processing runs in the background.',
+        summary: 'Upload one file (multipart field "file") to S3. Returns at once; processing runs in the background.',
         request: 'multipart/form-data: file',
         response: '201 · DocumentRead (status "pending")',
-        errors: '404 · 400 wrong type / empty / too large',
+        errors: '404 · 400 wrong type / empty / too large · 500 S3 upload failed',
       },
       { method: 'GET', path: '/api/projects/{project_id}/documents/{document_id}', summary: 'One document. Both ids must match.', response: 'DocumentRead', errors: '404' },
-      { method: 'DELETE', path: '/api/projects/{project_id}/documents/{document_id}', summary: 'Delete the row (chunks cascade), then the file on disk.', response: '204', errors: '404' },
+      {
+        method: 'GET',
+        path: '/api/projects/{project_id}/documents/{document_id}/url',
+        summary: 'A presigned S3 link to the file, valid 5 minutes: inline for the preview, or as an attachment with the original name.',
+        request: '?download=false|true (default false)',
+        response: '{ id, url, expires_in }',
+        errors: '404',
+      },
+      { method: 'DELETE', path: '/api/projects/{project_id}/documents/{document_id}', summary: 'Delete the row (chunks cascade), then the file in S3.', response: '204', errors: '404' },
     ],
   },
   {
@@ -159,7 +167,11 @@ export const ENDPOINT_GROUPS: { title: string; file: string; endpoints: Endpoint
 export const ENV_VARS = [
   { name: 'DATABASE_URL', where: 'api/.env', required: true, note: 'postgresql+asyncpg://… (the asyncpg driver is required for async SQLAlchemy).' },
   { name: 'CORS_ALLOW_ORIGINS', where: 'api/.env', required: true, note: 'JSON list, e.g. ["http://localhost:5173"]. Only needed without the Vite proxy.' },
-  { name: 'UPLOAD_DIR', where: 'api/.env', required: false, note: 'Folder for uploaded files. Default "uploads" (git-ignored).' },
+  { name: 'AWS_ACCESS_KEY_ID', where: 'api/.env', required: false, note: 'Access key of the IAM user that may only put, get, delete and list in the bucket.' },
+  { name: 'AWS_SECRET_ACCESS_KEY', where: 'api/.env', required: false, note: 'Its secret. Without the key or the bucket, uploads fail with a clear message.' },
+  { name: 'AWS_REGION', where: 'api/.env', required: false, note: 'Default eu-west-3. Links are built on the regional address (bucket.s3.<region>.amazonaws.com).' },
+  { name: 'S3_BUCKET', where: 'api/.env', required: false, note: 'The private bucket. Its CORS rule allows GET from the web app for previews.' },
+  { name: 'PRESIGNED_URL_EXPIRES', where: 'api/.env', required: false, note: 'Seconds a preview or download link stays valid. Default 300.' },
   { name: 'MAX_FILE_SIZE', where: 'api/.env', required: false, note: 'In bytes. Default 10 485 760 (10 MB).' },
   { name: 'ALLOWED_EXTENSIONS', where: 'api/.env', required: false, note: 'JSON list. Default [".pdf", ".md", ".txt"].' },
   { name: 'OPENAI_API_KEY', where: 'api/.env', required: false, note: 'For embeddings. Without it, documents end up "failed" with a clear message.' },
@@ -176,9 +188,10 @@ export const BACKEND_FOLDERS = [
   { path: 'app/routers/', role: 'HTTP endpoints only: validate input, call the database or a service, return a schema.' },
   { path: 'app/schemas/', role: 'Pydantic models: the exact shape of request bodies and responses (what /docs shows).' },
   { path: 'app/models/', role: 'SQLAlchemy models: one class per table. The source of truth for migrations.' },
-  { path: 'app/services/', role: 'The real work, no HTTP: extraction, chunking, embeddings, ingestion, llm, rag.' },
+  { path: 'app/services/', role: 'The real work, no HTTP: storage (S3), extraction, chunking, embeddings, ingestion, llm, rag.' },
   { path: 'alembic/versions/', role: 'Migrations: every change to the database schema, in order, reversible.' },
-  { path: 'uploads/<project_id>/', role: 'Uploaded files, named by document id. Not in git.' },
+  { path: 'app/services/storage.py', role: 'The only file that talks to S3 (boto3): upload, download, delete, delete a folder, presigned links.' },
+  { path: 'S3 · projects/<project_id>/', role: 'Uploaded files in the bucket, named by document id. One folder per project.' },
 ];
 
 export const FRONTEND_FOLDERS = [
@@ -208,6 +221,9 @@ export const GLOSSARY = [
   { term: 'CASCADE', definition: 'A foreign-key rule: deleting the parent row deletes its children automatically.' },
   { term: 'Session', definition: 'SQLAlchemy’s unit of work with the database: tracks objects and sends SQL on commit.' },
   { term: 'Optimistic update', definition: 'Showing the result in the UI before the server confirms it (your question appears instantly).' },
+  { term: 'S3', definition: 'Amazon’s file storage. Files (objects) live in a bucket under keys like folders: projects/<id>/<file>.' },
+  { term: 'Presigned URL', definition: 'A link to one private S3 file, signed with the API’s key and valid a few minutes. Nobody else can read the bucket.' },
+  { term: 'CORS', definition: 'Browser rule: a page may only read another origin’s responses if that origin allows it (the bucket’s CORS rule).' },
   { term: 'SSE', definition: 'Server-Sent Events: the server pushes text over one open HTTP response. Planned for streaming answers.' },
 ];
 
@@ -217,6 +233,7 @@ export const ROADMAP = [
   { title: 'Document upload, storage, listing, deletion', done: true },
   { title: 'Background ingestion: extract, chunk, embed, statuses', done: true },
   { title: 'Conversations and the ask endpoint (RAG)', done: true },
+  { title: 'Files in S3, with preview and download', done: true },
   { title: 'Streaming answers with SSE', done: false },
-  { title: 'Tests (pytest), authentication, S3 storage, a job queue, hybrid search', done: false },
+  { title: 'Tests (pytest), authentication, a job queue, hybrid search', done: false },
 ];

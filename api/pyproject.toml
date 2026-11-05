@@ -1,0 +1,4 @@
+# Tool settings for the API. Black reads this file both from VS Code (format on save) and from the terminal.
+[tool.black]
+line-length = 120
+target-version = ["py312"]

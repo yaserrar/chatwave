@@ -1,20 +1,19 @@
 from pathlib import Path
 from pypdf import PdfReader
+from app.services import storage
+from io import BytesIO
 
-def extract_pages(path: str) -> list[tuple[int, str]]:
+def extract_pages(content: bytes, ext: str) -> list[tuple[int, str]]:
     pages = []
 
-    ext = Path(path).suffix.lower()
-
     if ext == ".txt" or ext == ".md":
-        text = Path(path).read_text(encoding="utf-8", errors="replace").strip()
+        text = content.decode("utf-8", errors="replace").strip()
         if not text:
             raise ValueError("No text could be extracted from the file.")
         pages.append((1, text))
 
     elif ext == ".pdf":
-        path = Path(path)
-        reader = PdfReader(str(path))
+        reader = PdfReader(BytesIO(content))
         for i, page in enumerate(reader.pages):
             text = page.extract_text().strip()
             if not text:

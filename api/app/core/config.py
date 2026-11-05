@@ -15,6 +15,13 @@ class Settings(BaseSettings):
     claude_api_key: str | None = None
     llm_model: str = "claude-opus-5-5"
 
+    # File storage: a private S3 bucket (app/services/storage.py)
+    aws_access_key_id: str | None = None
+    aws_secret_access_key: str | None = None
+    aws_region: str = "eu-west-3"
+    s3_bucket: str | None = None
+    presigned_url_expires: int = 300  # seconds a preview/download link stays valid
+
     model_config = SettingsConfigDict(env_file=".env")
 
 
