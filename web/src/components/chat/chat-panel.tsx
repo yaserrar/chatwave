@@ -41,6 +41,10 @@ export function ChatPanel({
   const ask = useAsk(projectId);
   const [selected, setSelected] = React.useState<string | null | undefined>(undefined);
   const composer = React.useRef<ChatComposerHandle>(null);
+  const scrollRef = React.useRef<HTMLDivElement>(null);
+  const contentRef = React.useRef<HTMLOListElement>(null);
+  const followBottom = React.useRef(true);
+  const previousConversation = React.useRef<string | null | undefined>(undefined);
 
   const activeId = selected === undefined ? (conversations.data?.[0]?.id ?? null) : selected;
   const messages = useMessages(activeId);
@@ -52,6 +56,7 @@ export function ChatPanel({
   const streaming = waitingOnAnswer && Boolean(messages.data?.at(-1)?.id.startsWith(STREAMING_PREFIX));
 
   async function send(question: string) {
+    followBottom.current = true;
     let conversationId = activeId;
     if (!conversationId) {
       const created = await createConversation.mutateAsync();
@@ -66,24 +71,28 @@ export function ChatPanel({
     composer.current?.focus();
   }
 
-  // When a question is sent, show the bottom (question + "Searching…"). When the answer starts, show its
-  // start and let it grow below: answers are often longer than the panel, and following their end would
-  // hide the beginning while you read it.
-  const scrollRef = React.useRef<HTMLDivElement>(null);
   const messageCount = messages.data?.length ?? 0;
-  const lastRole = messages.data?.at(-1)?.role;
-  React.useEffect(() => {
+  React.useLayoutEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
-    const items = el.querySelectorAll<HTMLElement>('[data-message]');
-    const last = items[items.length - 1];
-    if (lastRole === 'assistant' && last) {
-      // offsetTop is relative to the scroll container (it is `relative`)
-      el.scrollTo({ top: last.offsetTop - 16, behavior: 'smooth' });
-    } else {
-      el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+    if (previousConversation.current !== activeId) {
+      previousConversation.current = activeId;
+      followBottom.current = true;
     }
-  }, [messageCount, waitingOnAnswer, activeId, lastRole]);
+    if (followBottom.current) el.scrollTop = el.scrollHeight;
+  }, [activeId, messages.data, waitingOnAnswer]);
+
+  React.useEffect(() => {
+    const content = contentRef.current;
+    const el = scrollRef.current;
+    if (!content || !el) return;
+    const observer = new ResizeObserver(() => {
+      if (followBottom.current) el.scrollTop = el.scrollHeight;
+    });
+    observer.observe(content);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [activeId, messageCount === 0 && !waitingOnAnswer, messages.isPending, messages.isError]);
 
   const hint =
     !documents.isSuccess
@@ -150,7 +159,14 @@ export function ChatPanel({
         </div>
       </header>
 
-      <div ref={scrollRef} className="relative min-h-0 flex-1 overflow-y-auto">
+      <div
+        ref={scrollRef}
+        className="relative min-h-0 flex-1 overflow-y-auto"
+        onScroll={(event) => {
+          const el = event.currentTarget;
+          followBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight <= 32;
+        }}
+      >
         {activeId && messages.isPending ? (
           <MessagesSkeleton />
         ) : activeId && messages.isError ? (
@@ -166,7 +182,7 @@ export function ChatPanel({
             }}
           />
         ) : (
-          <ol className={cn('flex flex-col gap-6 px-4 py-5 sm:px-6', expanded && 'mx-auto w-full max-w-3xl')}>
+          <ol ref={contentRef} className={cn('flex flex-col gap-6 px-4 py-5 sm:px-6', expanded && 'mx-auto w-full max-w-3xl')}>
             {messages.data?.map((message, i) => (
               // Keyed by position: messages are only ever appended, and the temporary ids (optimistic,
               // streaming) change to real ones when saved, which must not replay the entry animation.
