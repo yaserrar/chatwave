@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en" class="h-full">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Chat with your documents. Every project keeps its own knowledge." />
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#fafafa" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0a0a0a" />
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <title>Chatwave</title>
+    <script>
+      // Apply the saved theme before the first paint, so dark mode never flashes white.
+      (function () {
+        try {
+          var stored = localStorage.getItem('chatwave-theme');
+          var theme = stored === 'light' || stored === 'dark' ? stored : 'system';
+          var dark = theme === 'dark' || (theme === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
+          document.documentElement.classList.toggle('dark', dark);
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body class="flex min-h-full flex-col bg-background text-foreground antialiased">
+    <div id="root" class="flex min-h-full flex-col"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

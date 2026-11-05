@@ -3,3 +3,4 @@
 */db.txt
 **/__pycache__/
 */uploads/
+**/node_modules/

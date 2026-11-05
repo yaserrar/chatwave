@@ -1,0 +1,601 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "./fonts.css";
+
+/*
+ * Chatwave design tokens (inspired by Cadence): Tailwind-neutral black and white, hairline borders,
+ * very soft shadows and an indigo brand used sparingly (logo, focus, links, the assistant). Light and
+ * dark have full parity. Components use these tokens only, never hex values.
+ *
+ *   tile-<orange|green|purple|blue|pink|teal|amber|slate>   project tiles (colour derived from the id)
+ *   doc-<pending|processing|ready|failed>                   document processing status
+ * Backgrounds: `bg-grid`, `bg-grid-sm`, `bg-dot-grid` (+ `mask-radial`, `mask-fade-b`). Frame: `frame-rails`.
+ */
+
+@custom-variant dark (&:is(.dark *));
+
+/* Radix state variants (from shadcn/tailwind.css) */
+@custom-variant data-open {
+  &:where([data-state="open"]),
+  &:where([data-open]:not([data-open="false"])) {
+    @slot;
+  }
+}
+@custom-variant data-closed {
+  &:where([data-state="closed"]),
+  &:where([data-closed]:not([data-closed="false"])) {
+    @slot;
+  }
+}
+@custom-variant data-checked {
+  &:where([data-state="checked"]),
+  &:where([data-checked]:not([data-checked="false"])) {
+    @slot;
+  }
+}
+@custom-variant data-unchecked {
+  &:where([data-state="unchecked"]),
+  &:where([data-unchecked]:not([data-unchecked="false"])) {
+    @slot;
+  }
+}
+@custom-variant data-selected {
+  &:where([data-selected="true"]) {
+    @slot;
+  }
+}
+@custom-variant data-disabled {
+  &:where([data-disabled="true"]),
+  &:where([data-disabled]:not([data-disabled="false"])) {
+    @slot;
+  }
+}
+@custom-variant data-active {
+  &:where([data-state="active"]),
+  &:where([data-active]:not([data-active="false"])) {
+    @slot;
+  }
+}
+@custom-variant data-horizontal {
+  &:where([data-orientation="horizontal"]) {
+    @slot;
+  }
+}
+@custom-variant data-vertical {
+  &:where([data-orientation="vertical"]) {
+    @slot;
+  }
+}
+
+@theme inline {
+  /* ── Typography ── */
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Satoshi", "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-heading: "Satoshi", "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono Variable", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  /* ── shadcn core ── */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  /* ── Neutrals ── */
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-soft: var(--ink-soft);
+  --color-page: var(--page);
+  --color-surface: var(--surface);
+  --color-subtle: var(--subtle);
+  --color-subtle-2: var(--subtle-2);
+  --color-border-strong: var(--border-strong);
+  --color-hairline: var(--hairline);
+
+  /* ── Brand (indigo, sparingly) ── */
+  --color-brand: var(--brand);
+  --color-brand-ink: var(--brand-ink);
+  --color-brand-subtle: var(--brand-subtle);
+
+  /* ── Generic status ── */
+  --color-success: var(--success);
+  --color-success-subtle: var(--success-subtle);
+  --color-warning: var(--warning);
+  --color-warning-subtle: var(--warning-subtle);
+  --color-danger: var(--danger);
+  --color-danger-subtle: var(--danger-subtle);
+  --color-info: var(--info);
+  --color-info-subtle: var(--info-subtle);
+
+  /* ── Project tiles ── */
+  --color-tile-orange: var(--tile-orange);
+  --color-tile-orange-subtle: var(--tile-orange-subtle);
+  --color-tile-orange-ink: var(--tile-orange-ink);
+  --color-tile-green: var(--tile-green);
+  --color-tile-green-subtle: var(--tile-green-subtle);
+  --color-tile-green-ink: var(--tile-green-ink);
+  --color-tile-purple: var(--tile-purple);
+  --color-tile-purple-subtle: var(--tile-purple-subtle);
+  --color-tile-purple-ink: var(--tile-purple-ink);
+  --color-tile-blue: var(--tile-blue);
+  --color-tile-blue-subtle: var(--tile-blue-subtle);
+  --color-tile-blue-ink: var(--tile-blue-ink);
+  --color-tile-pink: var(--tile-pink);
+  --color-tile-pink-subtle: var(--tile-pink-subtle);
+  --color-tile-pink-ink: var(--tile-pink-ink);
+  --color-tile-teal: var(--tile-teal);
+  --color-tile-teal-subtle: var(--tile-teal-subtle);
+  --color-tile-teal-ink: var(--tile-teal-ink);
+  --color-tile-amber: var(--tile-amber);
+  --color-tile-amber-subtle: var(--tile-amber-subtle);
+  --color-tile-amber-ink: var(--tile-amber-ink);
+  --color-tile-slate: var(--tile-slate);
+  --color-tile-slate-subtle: var(--tile-slate-subtle);
+  --color-tile-slate-ink: var(--tile-slate-ink);
+
+  /* ── Document status ── */
+  --color-doc-pending: var(--doc-pending);
+  --color-doc-pending-subtle: var(--doc-pending-subtle);
+  --color-doc-pending-ink: var(--doc-pending-ink);
+  --color-doc-processing: var(--doc-processing);
+  --color-doc-processing-subtle: var(--doc-processing-subtle);
+  --color-doc-processing-ink: var(--doc-processing-ink);
+  --color-doc-ready: var(--doc-ready);
+  --color-doc-ready-subtle: var(--doc-ready-subtle);
+  --color-doc-ready-ink: var(--doc-ready-ink);
+  --color-doc-failed: var(--doc-failed);
+  --color-doc-failed-subtle: var(--doc-failed-subtle);
+  --color-doc-failed-ink: var(--doc-failed-ink);
+
+  /* ── Sidebar ── */
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  /* ── Radius: 4–6 chips · 8 buttons/inputs · 12 cards · 16 large panels · pill badges ── */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+  --radius-3xl: 20px;
+
+  /* ── Shadows (very soft) ── */
+  --shadow-xs: 0 1px 2px rgb(0 0 0 / 0.05);
+  --shadow-sm: 0 1px 3px rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.04);
+
+  /* ── Motion ── */
+  --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+  --animate-fade-up: fade-up 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-fade-in: fade-in 200ms ease-out both;
+  --animate-ping-soft: ping-soft 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+  --animate-skeleton: skeleton 1.6s ease-in-out infinite;
+  --animate-wave: wave 1.2s ease-in-out infinite;
+
+  @keyframes accordion-down {
+    from { height: 0; }
+    to { height: var(--radix-accordion-content-height, auto); }
+  }
+  @keyframes accordion-up {
+    from { height: var(--radix-accordion-content-height, auto); }
+    to { height: 0; }
+  }
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+/* A ring expanding from a live status dot */
+@keyframes ping-soft {
+  0% { transform: scale(1); opacity: 0.5; }
+  75%,
+  100% { transform: scale(2.4); opacity: 0; }
+}
+@keyframes skeleton {
+  0% { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
+/* Indeterminate bar of an upload in flight */
+@keyframes upload-slide {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(300%); }
+}
+/* The three bars of the "processing" indicator */
+@keyframes wave {
+  0%, 100% { transform: scaleY(0.4); }
+  50% { transform: scaleY(1); }
+}
+
+/* ─────────────────────────── Light (default) ─────────────────────────── */
+:root {
+  color-scheme: light;
+
+  --ink: #0a0a0a;
+  --ink-2: #525252;
+  --ink-soft: #6e6e6e;
+  --page: #fafafa;
+  --surface: #ffffff;
+  --subtle: #f5f5f5;
+  --subtle-2: #efefef;
+
+  --background: #fafafa;
+  --foreground: #0a0a0a;
+  --card: #ffffff;
+  --card-foreground: #0a0a0a;
+  --popover: #ffffff;
+  --popover-foreground: #0a0a0a;
+  --primary: #0a0a0a;
+  --primary-foreground: #ffffff;
+  --secondary: #ffffff;
+  --secondary-foreground: #0a0a0a;
+  --muted: #f5f5f5;
+  --muted-foreground: #6e6e6e;
+  --accent: #f5f5f5;
+  --accent-foreground: #0a0a0a;
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+  --border: #e5e5e5;
+  --hairline: #e5e5e5;
+  --border-strong: #d4d4d4;
+  --input: #e5e5e5;
+  --ring: #4f46e5;
+
+  --brand: #4f46e5;
+  --brand-ink: #4338ca;
+  --brand-subtle: #eef2ff;
+
+  --success: #15803d;
+  --success-subtle: #f0fdf4;
+  --warning: #b45309;
+  --warning-subtle: #fffbeb;
+  --danger: #b91c1c;
+  --danger-subtle: #fef2f2;
+  --info: #1d4ed8;
+  --info-subtle: #eff6ff;
+
+  --tile-orange: #f97316;
+  --tile-orange-subtle: #ffedd5;
+  --tile-orange-ink: #c2410c;
+  --tile-green: #22c55e;
+  --tile-green-subtle: #dcfce7;
+  --tile-green-ink: #15803d;
+  --tile-purple: #a855f7;
+  --tile-purple-subtle: #f3e8ff;
+  --tile-purple-ink: #7e22ce;
+  --tile-blue: #3b82f6;
+  --tile-blue-subtle: #dbeafe;
+  --tile-blue-ink: #1d4ed8;
+  --tile-pink: #ec4899;
+  --tile-pink-subtle: #fce7f3;
+  --tile-pink-ink: #be185d;
+  --tile-teal: #14b8a6;
+  --tile-teal-subtle: #ccfbf1;
+  --tile-teal-ink: #0f766e;
+  --tile-amber: #f59e0b;
+  --tile-amber-subtle: #fef3c7;
+  --tile-amber-ink: #b45309;
+  --tile-slate: #64748b;
+  --tile-slate-subtle: #e2e8f0;
+  --tile-slate-ink: #334155;
+
+  --doc-pending: #a3a3a3;
+  --doc-pending-subtle: #f5f5f5;
+  --doc-pending-ink: #525252;
+  --doc-processing: #4f46e5;
+  --doc-processing-subtle: #eef2ff;
+  --doc-processing-ink: #4338ca;
+  --doc-ready: #16a34a;
+  --doc-ready-subtle: #f0fdf4;
+  --doc-ready-ink: #15803d;
+  --doc-failed: #dc2626;
+  --doc-failed-subtle: #fef2f2;
+  --doc-failed-ink: #b91c1c;
+
+  --sidebar: #f5f5f5;
+  --sidebar-foreground: #0a0a0a;
+  --sidebar-accent: rgb(0 0 0 / 0.05);
+  --sidebar-accent-foreground: #0a0a0a;
+  --sidebar-border: #e5e5e5;
+  --sidebar-ring: #4f46e5;
+
+  --highlight: rgb(79 70 229 / 0.16);
+  --shadow-float-value: 0 12px 32px -12px rgb(0 0 0 / 0.14), 0 2px 6px -2px rgb(0 0 0 / 0.06);
+  --shadow-pop-value: 0 6px 16px -6px rgb(0 0 0 / 0.12), 0 1px 3px rgb(0 0 0 / 0.05);
+  --shadow-lift-value: 0 8px 24px -12px rgb(0 0 0 / 0.16), 0 1px 2px rgb(0 0 0 / 0.05);
+  --dot-grid-color: rgb(0 0 0 / 0.1);
+  --grid-line-color: rgb(0 0 0 / 0.055);
+  --radius: 0.5rem;
+}
+
+/* ─────────────────────────── Dark ─────────────────────────── */
+.dark {
+  color-scheme: dark;
+
+  --ink: #ededed;
+  --ink-2: #a3a3a3;
+  --ink-soft: #8f8f8f;
+  --page: #0a0a0a;
+  --surface: #111111;
+  --subtle: #171717;
+  --subtle-2: #1f1f1f;
+
+  --background: #0a0a0a;
+  --foreground: #ededed;
+  --card: #111111;
+  --card-foreground: #ededed;
+  --popover: #171717;
+  --popover-foreground: #ededed;
+  --primary: #ededed;
+  --primary-foreground: #0a0a0a;
+  --secondary: #171717;
+  --secondary-foreground: #ededed;
+  --muted: #171717;
+  --muted-foreground: #a3a3a3;
+  --accent: #1f1f1f;
+  --accent-foreground: #ededed;
+  --destructive: #f87171;
+  --destructive-foreground: #1b0a0a;
+  --border: #262626;
+  --hairline: #262626;
+  --border-strong: #404040;
+  --input: #2e2e2e;
+  --ring: #818cf8;
+
+  --brand: #818cf8;
+  --brand-ink: #a5b4fc;
+  --brand-subtle: #17153a;
+
+  --success: #4ade80;
+  --success-subtle: #0f2417;
+  --warning: #fbbf24;
+  --warning-subtle: #291f0b;
+  --danger: #f87171;
+  --danger-subtle: #2a1111;
+  --info: #60a5fa;
+  --info-subtle: #0d1a30;
+
+  --tile-orange: #fb923c;
+  --tile-orange-subtle: #2b1708;
+  --tile-orange-ink: #fdba74;
+  --tile-green: #4ade80;
+  --tile-green-subtle: #0f2417;
+  --tile-green-ink: #86efac;
+  --tile-purple: #c084fc;
+  --tile-purple-subtle: #241233;
+  --tile-purple-ink: #d8b4fe;
+  --tile-blue: #60a5fa;
+  --tile-blue-subtle: #0d1a30;
+  --tile-blue-ink: #93c5fd;
+  --tile-pink: #f472b6;
+  --tile-pink-subtle: #2d0f1f;
+  --tile-pink-ink: #f9a8d4;
+  --tile-teal: #2dd4bf;
+  --tile-teal-subtle: #062421;
+  --tile-teal-ink: #5eead4;
+  --tile-amber: #fbbf24;
+  --tile-amber-subtle: #291f0b;
+  --tile-amber-ink: #fcd34d;
+  --tile-slate: #94a3b8;
+  --tile-slate-subtle: #1a1f27;
+  --tile-slate-ink: #cbd5e1;
+
+  --doc-pending: #737373;
+  --doc-pending-subtle: #1a1a1a;
+  --doc-pending-ink: #a3a3a3;
+  --doc-processing: #818cf8;
+  --doc-processing-subtle: #17153a;
+  --doc-processing-ink: #a5b4fc;
+  --doc-ready: #4ade80;
+  --doc-ready-subtle: #0f2417;
+  --doc-ready-ink: #86efac;
+  --doc-failed: #f87171;
+  --doc-failed-subtle: #2a1111;
+  --doc-failed-ink: #fca5a5;
+
+  --sidebar: #0a0a0a;
+  --sidebar-foreground: #ededed;
+  --sidebar-accent: rgb(255 255 255 / 0.06);
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #262626;
+  --sidebar-ring: #818cf8;
+
+  --highlight: rgb(129 140 248 / 0.26);
+  --shadow-float-value: 0 16px 40px -12px rgb(0 0 0 / 0.7), 0 2px 8px -2px rgb(0 0 0 / 0.5);
+  --shadow-pop-value: 0 8px 20px -6px rgb(0 0 0 / 0.6), 0 1px 3px rgb(0 0 0 / 0.4);
+  --shadow-lift-value: 0 10px 28px -12px rgb(0 0 0 / 0.8), 0 1px 2px rgb(0 0 0 / 0.4);
+  --dot-grid-color: rgb(255 255 255 / 0.09);
+  --grid-line-color: rgb(255 255 255 / 0.05);
+}
+
+/* ─────────────────────────── Base ─────────────────────────── */
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply font-sans;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "cv11", "ss01";
+  }
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+  /* A modal sets pointer-events: none on body; toasts must stay clickable above it. */
+  [data-sonner-toaster] {
+    pointer-events: auto;
+  }
+  ::selection {
+    background: var(--highlight);
+  }
+  code,
+  kbd,
+  samp,
+  pre {
+    @apply font-mono;
+  }
+  :focus-visible {
+    outline-color: var(--ring);
+  }
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-strong) transparent;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+/* ─────────────────────────── Type scale ─────────────────────────── */
+
+/* Hero headline — Satoshi 30–40/500 */
+@utility text-display {
+  font-family: var(--font-display);
+  font-size: clamp(1.875rem, 1.5rem + 1.6vw, 2.5rem);
+  line-height: 1.12;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+/* Page titles — Satoshi 26–32/500 */
+@utility text-h1 {
+  font-family: var(--font-display);
+  font-size: clamp(1.625rem, 1.4rem + 0.8vw, 2rem);
+  line-height: 1.2;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+@utility text-h2 {
+  font-family: var(--font-display);
+  font-size: 1.125rem;
+  line-height: 1.625rem;
+  font-weight: 500;
+  letter-spacing: -0.012em;
+}
+@utility text-h3 {
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  font-weight: 600;
+  letter-spacing: -0.006em;
+}
+/* KPI numbers — Geist Mono */
+@utility text-kpi {
+  font-family: var(--font-mono);
+  font-size: 1.75rem;
+  line-height: 1;
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+/* Uppercase label — Inter 11/500 caps */
+@utility text-eyebrow {
+  font-family: var(--font-sans);
+  font-size: 0.6875rem;
+  line-height: 1rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+/* Sizes, counts, dates — Geist Mono 12/500 tabular */
+@utility text-metric {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  line-height: 1rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ─────────────────────────── Backgrounds ─────────────────────────── */
+@utility bg-grid {
+  background-image:
+    linear-gradient(to right, var(--grid-line-color) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid-line-color) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+@utility bg-grid-sm {
+  background-image:
+    linear-gradient(to right, var(--grid-line-color) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid-line-color) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+@utility bg-dot-grid {
+  background-image: radial-gradient(var(--dot-grid-color) 1px, transparent 1px);
+  background-size: 16px 16px;
+}
+@utility mask-radial {
+  mask-image: radial-gradient(circle at 50% 50%, black 30%, transparent 75%);
+}
+@utility mask-fade-b {
+  mask-image: linear-gradient(to bottom, black 40%, transparent);
+}
+@utility mask-fade-edges {
+  mask-image: radial-gradient(ellipse 75% 70% at 50% 40%, black 40%, transparent 100%);
+}
+
+/* ─────────────────────────── Framing ─────────────────────────── */
+@utility frame-rails {
+  border-left: 1px solid var(--hairline);
+  border-right: 1px solid var(--hairline);
+}
+
+@utility skeleton-shimmer {
+  background-image: linear-gradient(90deg, var(--muted) 0%, var(--accent) 50%, var(--muted) 100%);
+  background-size: 200% 100%;
+  animation: var(--animate-skeleton);
+}
+
+/* Floating surfaces (menus, popovers) and the card hover lift */
+@utility shadow-float {
+  box-shadow: var(--shadow-float-value);
+}
+@utility shadow-pop {
+  box-shadow: var(--shadow-pop-value);
+}
+@utility shadow-lift {
+  box-shadow: var(--shadow-lift-value);
+}
+
+@utility no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}

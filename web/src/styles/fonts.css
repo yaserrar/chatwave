@@ -1,0 +1,16 @@
+/* Satoshi (self-hosted, ITF Free Font License) for titles. Inter (UI) and Geist Mono (numbers) come from
+   @fontsource and are imported in main.tsx. */
+@font-face {
+  font-family: "Satoshi";
+  src: url("../assets/fonts/satoshi/Satoshi-Variable.woff2") format("woff2");
+  font-weight: 300 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Satoshi";
+  src: url("../assets/fonts/satoshi/Satoshi-VariableItalic.woff2") format("woff2");
+  font-weight: 300 900;
+  font-style: italic;
+  font-display: swap;
+}
