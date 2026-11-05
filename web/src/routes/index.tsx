@@ -1,17 +1,17 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { ProjectsOverview } from '~/components/projects/projects-overview';
-import { projectsQuery } from '~/hooks/projects';
+import { LandingPage } from '~/components/landing/landing-page';
+import { sessionQuery } from '~/hooks/auth';
 import { useDocumentTitle } from '~/hooks/use-document-title';
 
 export const Route = createFileRoute('/')({
-  // Warm the cache (not awaited): the page renders its own skeletons.
+  // Public. Warm the session (not awaited) so the button already says "Open dashboard" for a returning guest.
   loader: ({ context }) => {
-    void context.queryClient.prefetchQuery(projectsQuery());
+    void context.queryClient.prefetchQuery(sessionQuery());
   },
-  component: ProjectsPage,
+  component: Landing,
 });
 
-function ProjectsPage() {
-  useDocumentTitle('Projects');
-  return <ProjectsOverview />;
+function Landing() {
+  useDocumentTitle();
+  return <LandingPage />;
 }

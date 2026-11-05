@@ -3,6 +3,8 @@
  * (e.g. every documents query of a project).
  */
 export const qk = {
+  /** The signed-in user (or null). Kept when the rest of the cache is cleared on sign-in/out. */
+  session: ['session'] as const,
   projects: {
     all: ['projects'] as const,
     list: () => ['projects', 'list'] as const,

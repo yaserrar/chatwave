@@ -1,11 +1,12 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+
 class Settings(BaseSettings):
     cors_allow_origins: list[str]
     database_url: str
 
     upload_dir: str = "uploads"
-    max_file_size: int = 10 * 1024 * 1024 
+    max_file_size: int = 10 * 1024 * 1024
     allowed_extensions: list[str] = [".pdf", ".md", ".txt"]
 
     openai_api_key: str | None = None
@@ -21,6 +22,11 @@ class Settings(BaseSettings):
     aws_region: str = "eu-west-3"
     s3_bucket: str | None = None
     presigned_url_expires: int = 300  # seconds a preview/download link stays valid
+
+    secret_key: str
+    session_cookie_name: str = "cw_session"
+    session_max_age_days: int = 90
+    cookie_secure: bool = False
 
     model_config = SettingsConfigDict(env_file=".env")
 

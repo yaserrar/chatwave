@@ -31,7 +31,7 @@ export function AppTopbar({ onOpenNav }: { onOpenNav: () => void }) {
           <li className={cn('flex min-w-0 items-center gap-1', projectId && 'hidden sm:flex')}>
             {projectId ? (
               <Link
-                to="/"
+                to="/dashboard"
                 className="truncate rounded-sm px-1 text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
               >
                 Projects

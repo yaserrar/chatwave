@@ -38,7 +38,7 @@ export function ProjectActions({
   async function confirmDelete() {
     await remove.mutateAsync(project.id);
     toast.success(`Deleted “${project.name}”`);
-    await navigate({ to: '/' });
+    await navigate({ to: '/dashboard' });
     forgetProject(qc, project.id);
   }
 

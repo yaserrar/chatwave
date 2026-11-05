@@ -1,5 +1,6 @@
-import { MutationCache, QueryClient } from '@tanstack/react-query';
+import { MutationCache, QueryCache, QueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { qk } from '~/lib/query-keys';
 import { ApiError, errorMessage } from '~/services/api/client';
 
 declare module '@tanstack/react-query' {
@@ -11,10 +12,22 @@ declare module '@tanstack/react-query' {
 
 export type MutationOptions = { silent?: boolean };
 
-export const createQueryClient = () =>
+const isUnauthorized = (error: unknown) => error instanceof ApiError && error.status === 401;
+
+/** `onUnauthorized` runs when any request (other than the session check itself) answers 401. */
+export const createQueryClient = ({ onUnauthorized }: { onUnauthorized?: () => void } = {}) =>
   new QueryClient({
+    queryCache: new QueryCache({
+      onError: (error, query) => {
+        if (isUnauthorized(error) && query.queryKey[0] !== qk.session[0]) onUnauthorized?.();
+      },
+    }),
     mutationCache: new MutationCache({
       onError: (error, _vars, _ctx, mutation) => {
+        if (isUnauthorized(error)) {
+          onUnauthorized?.();
+          return;
+        }
         if (mutation.meta?.silent) return;
         toast.error(errorMessage(error));
       },

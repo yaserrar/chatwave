@@ -4,7 +4,7 @@ import { documentsQuery } from '~/hooks/documents';
 import { projectQuery, useProject } from '~/hooks/projects';
 import { useDocumentTitle } from '~/hooks/use-document-title';
 
-export const Route = createFileRoute('/projects/$projectId')({
+export const Route = createFileRoute('/_app/projects/$projectId')({
   // Runs on hover too (defaultPreload: 'intent'), so the project usually opens with its data ready.
   loader: ({ context, params }) => {
     void context.queryClient.prefetchQuery(projectQuery(params.projectId));

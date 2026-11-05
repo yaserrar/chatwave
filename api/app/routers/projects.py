@@ -17,11 +17,13 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["projects"])
 
+
 @router.get("", response_model=list[ProjectRead])
 async def get_projects(session: AsyncSession = Depends(get_session)):
-    query = select(Project).order_by(Project.created_at.desc())
+    query = select(Project).where(Project.created_by == some_user_id).order_by(Project.created_at.desc())
     result = await session.execute(query)
     return result.scalars().all()
+
 
 @router.get("/{project_id}", response_model=ProjectRead)
 async def get_project(project_id: uuid.UUID, session: AsyncSession = Depends(get_session)):
@@ -45,6 +47,7 @@ async def get_project(project_id: uuid.UUID, session: AsyncSession = Depends(get
 
     return project
 
+
 @router.post("", response_model=ProjectRead, status_code=status.HTTP_201_CREATED)
 async def create_project(
     payload: ProjectCreate,
@@ -57,14 +60,18 @@ async def create_project(
     return project
 
 
-
 @router.put("/{project_id}", response_model=ProjectRead)
 async def update_project(
     project_id: uuid.UUID,
     payload: ProjectUpdate,
     session: AsyncSession = Depends(get_session),
 ):
-    query = update(Project).where(Project.id==project_id).values(**payload.model_dump(exclude_unset=True)).returning(Project)
+    query = (
+        update(Project)
+        .where(Project.id == project_id)
+        .values(**payload.model_dump(exclude_unset=True))
+        .returning(Project)
+    )
     result = await session.execute(query)
 
     new_project = result.scalar_one_or_none()
@@ -98,4 +105,3 @@ async def delete_project(
         await asyncio.to_thread(storage.delete_folder, f"projects/{project_id}")
     except Exception as e:
         logger.exception("Failed to delete project folder %s", f"projects/{project_id}")
-

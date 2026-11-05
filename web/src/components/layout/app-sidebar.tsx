@@ -8,6 +8,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '~/components/ui/tooltip
 import { useProjects } from '~/hooks/projects';
 import { cn } from '~/lib/utils';
 import { ThemeToggle } from './theme-toggle';
+import { UserMenu } from './user-menu';
 import { Wordmark } from './wordmark';
 
 const itemClass =
@@ -21,7 +22,7 @@ function NavLink({
   label,
   onNavigate,
 }: {
-  to: '/' | '/documentation';
+  to: '/dashboard' | '/documentation';
   icon: Icon;
   label: string;
   onNavigate?: () => void;
@@ -42,7 +43,7 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <div className="flex h-full flex-col">
       <div className="flex flex-col gap-1 px-4 pt-4 pb-3">
-        <Link to="/" onClick={onNavigate} className="w-fit rounded-md outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring">
+        <Link to="/dashboard" onClick={onNavigate} className="w-fit rounded-md outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring">
           <Wordmark />
         </Link>
         <p className="pl-8 text-xs text-muted-foreground">Chat with your documents</p>
@@ -51,7 +52,7 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       <nav aria-label="Main" className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-2.5 py-2">
         <ul className="flex flex-col gap-0.5">
           <li>
-            <NavLink to="/" icon={Element3} label="All projects" onNavigate={onNavigate} />
+            <NavLink to="/dashboard" icon={Element3} label="All projects" onNavigate={onNavigate} />
           </li>
           <li>
             <NavLink to="/documentation" icon={Book1} label="Documentation" onNavigate={onNavigate} />
@@ -121,6 +122,7 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         </div>
       </nav>
 
+      <UserMenu />
       <div className="flex items-center justify-between border-t border-sidebar-border p-2.5 pl-4.5">
         <span className="text-xs text-muted-foreground">Theme</span>
         <ThemeToggle />

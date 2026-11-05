@@ -93,7 +93,7 @@ function ProjectNotFound() {
         description="It may have been deleted, or the link is wrong."
         action={
           <Button asChild variant="outline">
-            <Link to="/">
+            <Link to="/dashboard">
               <ArrowLeft aria-hidden />
               All projects
             </Link>
