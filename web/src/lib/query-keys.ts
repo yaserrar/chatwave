@@ -12,6 +12,9 @@ export const qk = {
     all: (projectId: string) => ['documents', projectId] as const,
     list: (projectId: string) => ['documents', projectId, 'list'] as const,
     detail: (projectId: string, documentId: string) => ['documents', projectId, 'detail', documentId] as const,
+    /** The inline preview link and the file's text (MD/TXT), both short-lived. */
+    previewUrl: (projectId: string, documentId: string) => ['documents', projectId, 'preview-url', documentId] as const,
+    previewText: (projectId: string, documentId: string) => ['documents', projectId, 'preview-text', documentId] as const,
   },
   conversations: {
     all: (projectId: string) => ['conversations', projectId] as const,

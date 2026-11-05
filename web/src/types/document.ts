@@ -15,6 +15,15 @@ export type DocumentDto = {
   updated_at: string;
 };
 
+/**
+ * A short-lived presigned S3 link to the file (GET …/documents/{id}/url). `download: true` makes S3 send it as
+ * an attachment with the original filename; otherwise it is served inline for the preview.
+ */
+export type DocumentUrlDto = {
+  url: string;
+  expires_in: number; // seconds
+};
+
 /** A file the user dropped, while its upload request is in flight (never stored by the API). */
 export type UploadingFile = {
   key: string;

@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Copy, TickCircle, Trash, Warning2 } from 'iconsax-react';
+import { Copy, DocumentDownload, Eye, TickCircle, Trash, Warning2 } from 'iconsax-react';
 import { toast } from 'sonner';
 import { ConfirmDialog } from '~/components/shared/confirm-dialog';
 import { DOC_STATUS_HINTS, DocStatusBadge } from '~/components/shared/doc-status';
@@ -9,8 +9,9 @@ import { FileIcon, fileKind } from '~/components/shared/file-icon';
 import { Button } from '~/components/ui/button';
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '~/components/ui/sheet';
 import { Skeleton } from '~/components/ui/skeleton';
-import { forgetDocument, useDeleteDocument, useDocument } from '~/hooks/documents';
+import { forgetDocument, useDeleteDocument, useDocument, useDownloadDocument } from '~/hooks/documents';
 import { formatBytes, formatCount, formatDateTime, plural } from '~/lib/format';
+import { DocumentPreview } from './document-preview';
 
 /** Details of one document (GET /projects/{id}/documents/{documentId}), opened from its row. */
 export function DocumentSheet({
@@ -37,7 +38,9 @@ function DocumentDetails({ projectId, documentId, onClose }: { projectId: string
   const qc = useQueryClient();
   const doc = useDocument(projectId, documentId);
   const remove = useDeleteDocument(projectId);
+  const download = useDownloadDocument(projectId);
   const [confirming, setConfirming] = React.useState(false);
+  const [previewing, setPreviewing] = React.useState(false);
 
   async function confirmDelete() {
     const name = doc.data?.filename ?? 'Document';
@@ -81,7 +84,20 @@ function DocumentDetails({ projectId, documentId, onClose }: { projectId: string
             <span className="text-xs text-muted-foreground">{DOC_STATUS_HINTS[d.status]}</span>
           </SheetDescription>
         </div>
+        {/* The file itself, from S3: works whatever the processing status is */}
+        <div className="flex gap-2">
+          <Button size="sm" onClick={() => setPreviewing(true)}>
+            <Eye aria-hidden />
+            Preview
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => download.mutate(d.id)} disabled={download.isPending}>
+            <DocumentDownload aria-hidden />
+            {download.isPending ? 'Preparing…' : 'Download'}
+          </Button>
+        </div>
       </SheetHeader>
+
+      <DocumentPreview projectId={projectId} doc={d} open={previewing} onOpenChange={setPreviewing} />
 
       <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto p-5">
         {d.status === 'failed' && d.error_message ? (

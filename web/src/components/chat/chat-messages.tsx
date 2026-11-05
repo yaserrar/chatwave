@@ -5,7 +5,7 @@ import { stripCitations } from '~/lib/chat';
 import { formatDateTime } from '~/lib/format';
 import { cn } from '~/lib/utils';
 import type { MessageDto, SourceDto } from '~/types/chat';
-import { Markdown } from './markdown';
+import { Markdown } from '~/components/shared/markdown';
 
 /** The question, right-aligned in a neutral bubble. Optimistic (not yet saved) questions are slightly faded. */
 export function UserMessage({ message }: { message: MessageDto }) {
