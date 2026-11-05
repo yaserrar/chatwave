@@ -11,6 +11,10 @@ class Settings(BaseSettings):
     openai_api_key: str | None = None
     embedding_model: str = "text-embedding-3-small"
 
+    # Claude writes the answers (embeddings stay on OpenAI)
+    claude_api_key: str | None = None
+    llm_model: str = "claude-opus-5-5"
+
     model_config = SettingsConfigDict(env_file=".env")
 
 
