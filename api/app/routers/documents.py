@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, status, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, status, HTTPException, UploadFile, BackgroundTasks
+from app.services.ingestion import process_document
 from sqlalchemy import select, update
 import uuid
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -32,6 +33,7 @@ async def get_documents(  project_id: uuid.UUID,session: AsyncSession = Depends(
 @router.post("/{project_id}/documents", response_model=DocumentRead, status_code=status.HTTP_201_CREATED)
 async def create_document(  project_id: uuid.UUID,
                             file: UploadFile,
+                            background_tasks: BackgroundTasks,
                             session: AsyncSession = Depends(get_session)):
     project = await session.get(Project, project_id)
     if project is None:
@@ -71,6 +73,7 @@ async def create_document(  project_id: uuid.UUID,
     session.add(document)
     await session.commit()
     await session.refresh(document)
+    background_tasks.add_task(process_document, document.id)
     return document
 
 

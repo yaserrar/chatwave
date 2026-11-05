@@ -8,8 +8,3 @@ export type FastApiValidationIssue = {
 export type FastApiErrorBody = {
   detail?: string | FastApiValidationIssue[];
 };
-
-export type HealthDto = {
-  status: string;
-  database?: string;
-};

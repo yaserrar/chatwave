@@ -3,7 +3,6 @@
  * (e.g. every documents query of a project).
  */
 export const qk = {
-  health: ['health'] as const,
   projects: {
     all: ['projects'] as const,
     list: () => ['projects', 'list'] as const,

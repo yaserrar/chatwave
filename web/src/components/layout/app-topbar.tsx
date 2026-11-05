@@ -3,7 +3,6 @@ import { ArrowRight2, HambergerMenu } from 'iconsax-react';
 import { Button } from '~/components/ui/button';
 import { useProject } from '~/hooks/projects';
 import { cn } from '~/lib/utils';
-import { ApiStatus } from './api-status';
 
 /** The current project's name, from the cache the page already filled. */
 function ProjectCrumb({ projectId }: { projectId: string }) {
@@ -11,7 +10,7 @@ function ProjectCrumb({ projectId }: { projectId: string }) {
   return <>{project.data?.name ?? (project.isError ? 'Not found' : '…')}</>;
 }
 
-/** Top bar: menu button (< lg), breadcrumbs (Projects › project) and the API status. */
+/** Top bar: menu button (< lg) and breadcrumbs (Projects › project). */
 export function AppTopbar({ onOpenNav }: { onOpenNav: () => void }) {
   const { projectId } = useParams({ strict: false });
 
@@ -47,8 +46,6 @@ export function AppTopbar({ onOpenNav }: { onOpenNav: () => void }) {
           ) : null}
         </ol>
       </nav>
-
-      <ApiStatus className="shrink-0" />
     </header>
   );
 }
