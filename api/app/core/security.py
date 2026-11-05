@@ -1,21 +1,20 @@
-import jwt
+from datetime import datetime, timedelta, timezone
 from uuid import UUID
+
+import jwt
+
 from app.core.config import get_settings
-from datetime import datetime, timedelta
 
 
-def create_session_token(user_id: str) -> str:
-    expiration = datetime.utcnow() + timedelta(days=get_settings().session_max_age_days)
-    payload = {"sub": user_id, "exp": expiration}
-    token = jwt.encode(payload, get_settings().secret_key, algorithm="HS256")
-    return token
+def create_session_token(user_id: UUID) -> str:
+    settings = get_settings()
+    expires = datetime.now(timezone.utc) + timedelta(days=settings.session_max_age_days)
+    return jwt.encode({"sub": str(user_id), "exp": expires}, settings.secret_key, algorithm="HS256")
 
 
 def read_session_token(token: str) -> UUID | None:
     try:
         payload = jwt.decode(token, get_settings().secret_key, algorithms=["HS256"])
-        return UUID(payload.get("sub"))
-    except jwt.ExpiredSignatureError:
-        return None
-    except jwt.InvalidTokenError:
+        return UUID(payload["sub"])
+    except (jwt.InvalidTokenError, KeyError, ValueError, TypeError):
         return None

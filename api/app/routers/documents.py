@@ -5,6 +5,7 @@ import uuid
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_session
+from app.dependencies import get_owned_project
 from app.models.project import Project
 from app.schemas.project import ProjectCreate, ProjectRead, ProjectUpdate
 
@@ -23,11 +24,11 @@ logger = logging.getLogger(__name__)
 
 
 @router.get("/{project_id}/documents", response_model=list[DocumentRead], status_code=status.HTTP_200_OK)
-async def get_documents(project_id: uuid.UUID, session: AsyncSession = Depends(get_session)):
-    project = await session.get(Project, project_id)
-    if project is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
-
+async def get_documents(
+    project_id: uuid.UUID,
+    project: Project = Depends(get_owned_project),
+    session: AsyncSession = Depends(get_session),
+):
     query = select(Document).order_by(Document.created_at).where(Document.project_id == project_id)
     result = await session.execute(query)
     documents = result.scalars().all()
@@ -39,12 +40,9 @@ async def create_document(
     project_id: uuid.UUID,
     file: UploadFile,
     background_tasks: BackgroundTasks,
+    project: Project = Depends(get_owned_project),
     session: AsyncSession = Depends(get_session),
 ):
-    project = await session.get(Project, project_id)
-    if project is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
-
     # do 3 type checks using env vars
 
     document_id = uuid.uuid4()
@@ -84,7 +82,12 @@ async def create_document(
 
 
 @router.get("/{project_id}/documents/{document_id}", response_model=DocumentRead, status_code=status.HTTP_200_OK)
-async def get_document(project_id: uuid.UUID, document_id: uuid.UUID, session: AsyncSession = Depends(get_session)):
+async def get_document(
+    project_id: uuid.UUID,
+    document_id: uuid.UUID,
+    project: Project = Depends(get_owned_project),
+    session: AsyncSession = Depends(get_session),
+):
     query = select(Document).where(Document.project_id == project_id).where(Document.id == document_id)
     # query = select(Document).filter_by(project_id=project_id, id=document_id)
     result = await session.execute(query)
@@ -97,7 +100,11 @@ async def get_document(project_id: uuid.UUID, document_id: uuid.UUID, session: A
 
 @router.get("/{project_id}/documents/{document_id}/url", response_model=DocumentUrlRead, status_code=status.HTTP_200_OK)
 async def get_document_url(
-    project_id: uuid.UUID, document_id: uuid.UUID, download: bool = False, session: AsyncSession = Depends(get_session)
+    project_id: uuid.UUID,
+    document_id: uuid.UUID,
+    download: bool = False,
+    project: Project = Depends(get_owned_project),
+    session: AsyncSession = Depends(get_session),
 ):
     query = select(Document).where(Document.project_id == project_id).where(Document.id == document_id)
     result = await session.execute(query)
@@ -117,7 +124,12 @@ async def get_document_url(
 
 
 @router.delete("/{project_id}/documents/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_document(project_id: uuid.UUID, document_id: uuid.UUID, session: AsyncSession = Depends(get_session)):
+async def delete_document(
+    project_id: uuid.UUID,
+    document_id: uuid.UUID,
+    project: Project = Depends(get_owned_project),
+    session: AsyncSession = Depends(get_session),
+):
     query = select(Document).where(Document.project_id == project_id).where(Document.id == document_id)
     result = await session.execute(query)
     document = result.scalar_one_or_none()

@@ -5,6 +5,7 @@ import uuid
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_session
+from app.dependencies import get_owned_conversation, get_owned_project
 from app.models.project import Project
 from app.models.conversation import Conversation
 from app.models.message import Message
@@ -21,12 +22,9 @@ router = APIRouter(tags=["conversations"])
 async def create_conversation(
     project_id: uuid.UUID,
     payload: ConversationCreate,
+    project: Project = Depends(get_owned_project),
     session: AsyncSession = Depends(get_session),
 ):
-    project = await session.get(Project, project_id)
-    if project is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
-
     conversation = Conversation(project_id=project_id, title=payload.title)
     session.add(conversation)
     await session.commit()
@@ -35,11 +33,11 @@ async def create_conversation(
 
 
 @router.get("/projects/{project_id}/conversations", response_model=list[ConversationRead])
-async def get_conversations(project_id: uuid.UUID, session: AsyncSession = Depends(get_session)):
-    project = await session.get(Project, project_id)
-    if project is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
-
+async def get_conversations(
+    project_id: uuid.UUID,
+    project: Project = Depends(get_owned_project),
+    session: AsyncSession = Depends(get_session),
+):
     # Most recently active first
     query = select(Conversation).where(Conversation.project_id == project_id).order_by(Conversation.updated_at.desc())
     result = await session.execute(query)
@@ -47,11 +45,11 @@ async def get_conversations(project_id: uuid.UUID, session: AsyncSession = Depen
 
 
 @router.get("/conversations/{conversation_id}/messages", response_model=list[MessageRead])
-async def get_messages(conversation_id: uuid.UUID, session: AsyncSession = Depends(get_session)):
-    conversation = await session.get(Conversation, conversation_id)
-    if conversation is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
-
+async def get_messages(
+    conversation_id: uuid.UUID,
+    conversation: Conversation = Depends(get_owned_conversation),
+    session: AsyncSession = Depends(get_session),
+):
     # Oldest first, so the chat reads from top to bottom
     query = select(Message).where(Message.conversation_id == conversation_id).order_by(Message.created_at)
     result = await session.execute(query)
@@ -59,12 +57,13 @@ async def get_messages(conversation_id: uuid.UUID, session: AsyncSession = Depen
 
 
 @router.post("/conversations/{conversation_id}/ask", response_model=MessageRead)
-async def ask(conversation_id: uuid.UUID, payload: AskRequest, session: AsyncSession = Depends(get_session)):
+async def ask(
+    conversation_id: uuid.UUID,
+    payload: AskRequest,
+    conversation: Conversation = Depends(get_owned_conversation),
+    session: AsyncSession = Depends(get_session),
+):
     """Answers a question from the project's documents. Returns the assistant's message, with its sources."""
-    conversation = await session.get(Conversation, conversation_id)
-    if conversation is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
-
     try:
         return await answer_question(session, conversation, payload.question)
     except ValueError as e:
