@@ -30,15 +30,41 @@ export function useCreateConversation(projectId: string) {
 
 export type AskVariables = { conversationId: string; question: string };
 
+/** Id prefix of the answer while it is being written (not saved yet). */
+export const STREAMING_PREFIX = 'streaming-';
+
 /**
- * Asks a question. The question shows at once (optimistic message with a temporary id) and the answer is
- * appended when the API returns it. On failure the optimistic question is removed, then the messages are
- * refetched: the API may have saved the question before the LLM failed.
+ * Asks a question. The question shows at once (optimistic message with a temporary id). The answer is
+ * streamed: a draft assistant message appears with the first words and grows as Claude writes, then it is
+ * replaced by the saved message (real id, sources). On failure the optimistic messages are removed, then the
+ * messages are refetched: the API may have saved the question before the LLM failed.
  */
 export function useAsk(projectId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ conversationId, question }: AskVariables) => conversationsApi.ask(conversationId, question),
+    mutationFn: async ({ conversationId, question }: AskVariables) => {
+      const key = qk.messages(conversationId);
+      const draft: MessageDto = {
+        id: `${STREAMING_PREFIX}${crypto.randomUUID()}`,
+        conversation_id: conversationId,
+        role: 'assistant',
+        content: '',
+        sources: null,
+        created_at: new Date().toISOString(),
+      };
+      // Puts `message` in place of the draft, or at the end the first time
+      const upsert = (message: MessageDto) =>
+        qc.setQueryData<MessageDto[]>(key, (list = []) =>
+          list.some((m) => m.id === draft.id) ? list.map((m) => (m.id === draft.id ? message : m)) : [...list, message],
+        );
+
+      const answer = await conversationsApi.ask(conversationId, question, (text) => {
+        draft.content += text;
+        upsert({ ...draft });
+      });
+      upsert(answer);
+      return answer;
+    },
     onMutate: async ({ conversationId, question }) => {
       const key = qk.messages(conversationId);
       await qc.cancelQueries({ queryKey: key });
@@ -57,11 +83,8 @@ export function useAsk(projectId: string) {
     onError: (_error, { conversationId }, context) => {
       qc.setQueryData(qk.messages(conversationId), context?.previous);
     },
-    onSuccess: (answer, { conversationId }) => {
-      qc.setQueryData<MessageDto[]>(qk.messages(conversationId), (list) => [...(list ?? []), answer]);
-    },
     onSettled: (_data, _error, { conversationId }) => {
-      // Real ids for the optimistic question, plus the new title / order of the conversations list
+      // Real id for the optimistic question, plus the new title / order of the conversations list
       void qc.invalidateQueries({ queryKey: qk.messages(conversationId) });
       void qc.invalidateQueries({ queryKey: qk.conversations.list(projectId) });
     },

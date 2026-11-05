@@ -23,7 +23,7 @@ export function PageHeader({
   return (
     <header className={cn("flex flex-col gap-5", className)}>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div className="flex min-w-0 items-start gap-3.5">
+        <div className="flex min-w-0 items-center gap-3.5">
           {leading ? <div className="shrink-0 pt-0.5">{leading}</div> : null}
           <div className="flex min-w-0 flex-col gap-1.5">
             {eyebrow ? <div className="text-eyebrow">{eyebrow}</div> : null}

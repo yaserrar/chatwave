@@ -25,14 +25,18 @@ export function UserMessage({ message }: { message: MessageDto }) {
   );
 }
 
-/** The answer: Markdown, then the documents and pages it used. */
-export function AssistantMessage({ message }: { message: MessageDto }) {
+/**
+ * The answer: Markdown, then the documents and pages it used.
+ * `streaming`: Claude is still writing it, so a caret follows the text and the sources come at the end.
+ */
+export function AssistantMessage({ message, streaming = false }: { message: MessageDto; streaming?: boolean }) {
   const sources = message.sources ?? [];
   return (
-    <div className="flex gap-3">
+    <div className="flex gap-3" aria-busy={streaming}>
       <Logomark className="mt-0.5 size-7" />
       <div className="flex min-w-0 flex-1 flex-col gap-2.5">
-        <Markdown>{stripCitations(message.content)}</Markdown>
+        <Markdown>{stripCitations(message.content, streaming)}</Markdown>
+        {streaming ? <span aria-hidden className="-mt-1.5 inline-block h-4 w-0.5 animate-pulse rounded-full bg-brand" /> : null}
         {sources.length > 0 ? <SourceList sources={sources} /> : null}
       </div>
     </div>
@@ -61,7 +65,7 @@ function SourceList({ sources }: { sources: SourceDto[] }) {
   );
 }
 
-/** While the API searches and Claude writes (5–15 s without streaming). */
+/** While the API searches the documents, until the first words of the answer arrive. */
 export function ThinkingMessage() {
   return (
     <div className="flex gap-3" role="status" aria-live="polite">
@@ -72,7 +76,7 @@ export function ThinkingMessage() {
             <span key={delay} className="size-1.5 animate-pulse rounded-full bg-brand" style={{ animationDelay: `${delay}ms` }} />
           ))}
         </span>
-        Searching the documents and writing an answer…
+        Searching the documents…
       </div>
     </div>
   );

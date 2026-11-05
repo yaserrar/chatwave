@@ -5,7 +5,7 @@ import { ErrorState } from '~/components/shared/error-state';
 import { Button } from '~/components/ui/button';
 import { Skeleton } from '~/components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipTrigger } from '~/components/ui/tooltip';
-import { useAsk, useConversations, useCreateConversation, useMessages } from '~/hooks/conversations';
+import { STREAMING_PREFIX, useAsk, useConversations, useCreateConversation, useMessages } from '~/hooks/conversations';
 import { useDocuments } from '~/hooks/documents';
 import { plural } from '~/lib/format';
 import { cn } from '~/lib/utils';
@@ -48,6 +48,8 @@ export function ChatPanel({
   const docs = documents.data ?? [];
   const ready = docs.filter((d) => d.status === 'ready').length;
   const waitingOnAnswer = ask.isPending && ask.variables?.conversationId === activeId;
+  // The answer has started arriving: the draft message replaces "Searching…"
+  const streaming = waitingOnAnswer && Boolean(messages.data?.at(-1)?.id.startsWith(STREAMING_PREFIX));
 
   async function send(question: string) {
     let conversationId = activeId;
@@ -64,8 +66,9 @@ export function ChatPanel({
     composer.current?.focus();
   }
 
-  // When a question is sent, show the bottom (question + "Searching…"). When an answer arrives, show its
-  // start: answers are often longer than the panel, and jumping to their end would hide the beginning.
+  // When a question is sent, show the bottom (question + "Searching…"). When the answer starts, show its
+  // start and let it grow below: answers are often longer than the panel, and following their end would
+  // hide the beginning while you read it.
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const messageCount = messages.data?.length ?? 0;
   const lastRole = messages.data?.at(-1)?.role;
@@ -74,7 +77,7 @@ export function ChatPanel({
     if (!el) return;
     const items = el.querySelectorAll<HTMLElement>('[data-message]');
     const last = items[items.length - 1];
-    if (lastRole === 'assistant' && last && !waitingOnAnswer) {
+    if (lastRole === 'assistant' && last) {
       // offsetTop is relative to the scroll container (it is `relative`)
       el.scrollTo({ top: last.offsetTop - 16, behavior: 'smooth' });
     } else {
@@ -164,12 +167,18 @@ export function ChatPanel({
           />
         ) : (
           <ol className={cn('flex flex-col gap-6 px-4 py-5 sm:px-6', expanded && 'mx-auto w-full max-w-3xl')}>
-            {messages.data?.map((message) => (
-              <li key={message.id} data-message data-role={message.role} className="animate-fade-up">
-                {message.role === 'user' ? <UserMessage message={message} /> : <AssistantMessage message={message} />}
+            {messages.data?.map((message, i) => (
+              // Keyed by position: messages are only ever appended, and the temporary ids (optimistic,
+              // streaming) change to real ones when saved, which must not replay the entry animation.
+              <li key={`${activeId}-${i}`} data-message data-role={message.role} className="animate-fade-up">
+                {message.role === 'user' ? (
+                  <UserMessage message={message} />
+                ) : (
+                  <AssistantMessage message={message} streaming={message.id.startsWith(STREAMING_PREFIX)} />
+                )}
               </li>
             ))}
-            {waitingOnAnswer ? (
+            {waitingOnAnswer && !streaming ? (
               <li>
                 <ThinkingMessage />
               </li>

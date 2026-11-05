@@ -1,5 +1,8 @@
 import logging
-from fastapi import APIRouter, Depends, status, HTTPException
+from collections.abc import AsyncIterator
+
+from fastapi import APIRouter, Depends, status
+from fastapi.sse import EventSourceResponse, ServerSentEvent
 from sqlalchemy import select
 import uuid
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -57,21 +60,37 @@ async def get_messages(
 
 
 @router.post(
-    "/conversations/{conversation_id}/ask", response_model=MessageRead, dependencies=[Depends(limit_messages)]
+    "/conversations/{conversation_id}/ask",
+    response_class=EventSourceResponse,
+    dependencies=[Depends(limit_messages)],
 )
 async def ask(
     conversation_id: uuid.UUID,
     payload: AskRequest,
     conversation: Conversation = Depends(get_owned_conversation),
     session: AsyncSession = Depends(get_session),
-):
-    """Answers a question from the project's documents. Returns the assistant's message, with its sources."""
+) -> AsyncIterator[ServerSentEvent]:
+    """
+    Answers a question from the project's documents, streamed with Server-Sent Events (SSE):
+
+    - `delta`: {"text": "..."}, a piece of the answer, as Claude writes it
+    - `done`:  the saved assistant message (MessageRead), with its sources. Always the last event.
+    - `error`: {"detail": "..."} if answering failed. Also the last event.
+
+    The checks (owner, rate limit) run before the stream starts, so they still answer with a normal
+    404 / 429. The database session stays open until the stream ends.
+    """
     try:
-        return await answer_question(session, conversation, payload.question)
+        async for item in answer_question(session, conversation, payload.question):
+            if isinstance(item, Message):
+                yield ServerSentEvent(event="done", data=MessageRead.model_validate(item))
+            else:
+                yield ServerSentEvent(event="delta", data={"text": item})
+    # The response has already started (status 200), so errors are sent as an event, not an HTTP error
     except ValueError as e:
         # Our own clear errors, e.g. "CLAUDE_API_KEY is not set"
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+        yield ServerSentEvent(event="error", data={"detail": str(e)})
     except Exception:
         # OpenAI or Claude failed (network, rate limit...): full error in the logs, short message for the client
         logger.exception("Answering failed for conversation %s", conversation_id)
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Could not generate an answer right now. Try again.")
+        yield ServerSentEvent(event="error", data={"detail": "Could not generate an answer right now. Try again."})

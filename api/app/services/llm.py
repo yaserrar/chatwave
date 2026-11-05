@@ -1,3 +1,5 @@
+from collections.abc import AsyncIterator
+
 from anthropic import AsyncAnthropic
 
 from app.core.config import get_settings
@@ -15,16 +17,27 @@ def _get_client() -> AsyncAnthropic:
     return AsyncAnthropic(api_key=settings.claude_api_key)
 
 
-async def generate_answer(system: str, messages: list[dict]) -> str:
+class StreamResult:
+    """Filled in by `stream_answer` once the answer is complete."""
+
+    refused: bool = False  # True if even the fallback model declined the request
+
+
+async def stream_answer(system: str, messages: list[dict], result: StreamResult) -> AsyncIterator[str]:
     """
-    Sends the instructions and the conversation to Claude and returns the answer text.
+    Sends the instructions and the conversation to Claude, and yields the answer text piece by piece
+    as Claude writes it.
 
     system:   the instructions (Claude takes them separately, not as a message)
     messages: [{"role": "user" | "assistant", "content": "..."}], must start with a "user" message
+    result:   read it after the loop: `result.refused` says whether the answer was declined
+
+    With `fallbacks`, a declined request continues on the fallback model inside the same stream, and the
+    text already sent stays valid. Only if every model declines is `result.refused` set at the end.
     """
     client = _get_client()
 
-    response = await client.beta.messages.create(
+    async with client.beta.messages.stream(
         model=get_settings().llm_model,
         max_tokens=16000,
         system=system,
@@ -33,11 +46,10 @@ async def generate_answer(system: str, messages: list[dict]) -> str:
         output_config={"effort": "medium"},
         betas=[FALLBACK_BETA],
         fallbacks="default",
-    )
+    ) as stream:
+        # Only the answer text: thinking is not part of text_stream
+        async for text in stream.text_stream:
+            yield text
+        final = await stream.get_final_message()
 
-    # Even the fallback model declined: say so instead of returning an empty answer
-    if response.stop_reason == "refusal":
-        return REFUSAL_MESSAGE
-
-    # response.content is a list of blocks (thinking, text...): keep only the answer text
-    return "".join(block.text for block in response.content if block.type == "text").strip()
+    result.refused = final.stop_reason == "refusal"

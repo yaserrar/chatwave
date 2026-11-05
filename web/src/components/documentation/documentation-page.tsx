@@ -549,7 +549,7 @@ function Frontend() {
           useDocuments refetches every 4 s while any document is pending or processing, then stops by itself.
         </InfoTile>
         <InfoTile icon={MessageQuestion} title="Optimistic questions">
-          useAsk adds your question to the cache at once, then appends the answer; on error it rolls back and puts your text back.
+          useAsk adds your question to the cache at once, then streams the answer into a draft message that grows word by word; on error it rolls back and puts your text back.
         </InfoTile>
         <InfoTile icon={Data} title="Query keys">
           lib/query-keys.ts: ['projects', …], ['documents', projectId, …], ['conversations', projectId, …], ['messages', id].

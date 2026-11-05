@@ -155,7 +155,7 @@ export const ENDPOINT_GROUPS: { title: string; file: string; endpoints: Endpoint
       {
         method: 'POST',
         path: '/api/conversations/{conversation_id}/ask',
-        summary: 'Answer a question from the project’s ready documents (RAG). Not streamed yet.',
+        summary: 'Answer a question from the project’s ready documents (RAG), streamed with Server-Sent Events.',
         request: '{ question } (1–4000 characters)',
         response: 'MessageRead (role "assistant", with sources)',
         errors: '404 · 422 · 500 missing key · 502 AI provider failed',

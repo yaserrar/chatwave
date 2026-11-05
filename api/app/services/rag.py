@@ -1,5 +1,6 @@
 import re
 import uuid
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
 
 from sqlalchemy import func, select
@@ -10,7 +11,7 @@ from app.models.conversation import Conversation
 from app.models.document import Document
 from app.models.message import Message
 from app.services.embeddings import embed_query
-from app.services.llm import generate_answer
+from app.services.llm import REFUSAL_MESSAGE, StreamResult, stream_answer
 
 TOP_K = 5             # how many chunks are given to Claude
 HISTORY_MESSAGES = 6  # how many earlier messages are sent along (3 questions + 3 answers)
@@ -108,8 +109,14 @@ def cited_sources(answer: str, chunks: list[RetrievedChunk]) -> list[dict]:
 
 # ---------- 4. The whole flow ----------
 
-async def answer_question(session: AsyncSession, conversation: Conversation, question: str) -> Message:
-    """Saves the question, answers it from the project's documents, saves and returns the answer."""
+async def answer_question(
+    session: AsyncSession, conversation: Conversation, question: str
+) -> AsyncIterator[str | Message]:
+    """
+    Saves the question and answers it from the project's documents.
+
+    Yields the answer text piece by piece (str) while Claude writes it, then the saved answer (Message) last.
+    """
     # History first, so it does not include the new question
     history = await load_history(session, conversation.id)
 
@@ -120,7 +127,14 @@ async def answer_question(session: AsyncSession, conversation: Conversation, que
     chunks = await search_chunks(session, conversation.project_id, question_vector)
 
     user_message = f"{build_context(chunks)}\n\nQuestion: {question}"
-    answer = await generate_answer(SYSTEM_PROMPT, history + [{"role": "user", "content": user_message}])
+    result = StreamResult()
+    pieces = []
+    async for text in stream_answer(SYSTEM_PROMPT, history + [{"role": "user", "content": user_message}], result):
+        pieces.append(text)
+        yield text
+
+    # Even the fallback model declined: save that instead of a cut-off answer
+    answer = REFUSAL_MESSAGE if result.refused else "".join(pieces).strip()
 
     assistant_message = Message(
         conversation_id=conversation.id,
@@ -137,4 +151,4 @@ async def answer_question(session: AsyncSession, conversation: Conversation, que
 
     await session.commit()
     await session.refresh(assistant_message)
-    return assistant_message
+    yield assistant_message
