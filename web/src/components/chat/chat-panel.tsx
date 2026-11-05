@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Add, MagicStar } from 'iconsax-react';
+import { Add, MagicStar, SidebarLeft, SidebarRight } from 'iconsax-react';
 import { Logomark } from '~/components/layout/wordmark';
 import { ErrorState } from '~/components/shared/error-state';
 import { Button } from '~/components/ui/button';
@@ -8,6 +8,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '~/components/ui/tooltip
 import { useAsk, useConversations, useCreateConversation, useMessages } from '~/hooks/conversations';
 import { useDocuments } from '~/hooks/documents';
 import { plural } from '~/lib/format';
+import { cn } from '~/lib/utils';
 import { AssistantMessage, ThinkingMessage, UserMessage } from './chat-messages';
 import { ChatComposer, type ChatComposerHandle } from './chat-composer';
 import { ConversationSwitcher } from './conversation-switcher';
@@ -24,7 +25,16 @@ const EXAMPLES = [
  * Which conversation is shown: `selected === undefined` means the user has not picked one yet, so the most
  * recent conversation is shown; `null` is an explicit new (draft) conversation, created on the first question.
  */
-export function ChatPanel({ projectId }: { projectId: string }) {
+export function ChatPanel({
+  projectId,
+  expanded = false,
+  onToggleExpanded,
+}: {
+  projectId: string;
+  /** Full width (documents column hidden). Messages stay in a readable centred column. */
+  expanded?: boolean;
+  onToggleExpanded?: () => void;
+}) {
   const conversations = useConversations(projectId);
   const documents = useDocuments(projectId);
   const createConversation = useCreateConversation(projectId);
@@ -84,7 +94,9 @@ export function ChatPanel({ projectId }: { projectId: string }) {
   return (
     <section
       aria-labelledby="chat-title"
-      className="relative isolate flex h-[70svh] min-h-112 flex-col overflow-hidden rounded-2xl border bg-card shadow-xs lg:sticky lg:top-6 lg:h-[calc(100svh-8.5rem)] lg:self-start"
+      // Phones: a fixed share of the screen. Large screens: exactly the height of its column, so the
+      // composer is always visible and only the messages scroll.
+      className="relative isolate flex h-[70svh] min-h-112 flex-col overflow-hidden rounded-2xl border bg-card shadow-xs lg:h-full lg:min-h-0"
     >
       <header className="flex items-center justify-between gap-3 border-b px-4 py-2.5">
         <div className="flex min-w-0 items-center gap-2">
@@ -107,6 +119,23 @@ export function ChatPanel({ projectId }: { projectId: string }) {
             <MagicStar aria-hidden className="size-3" />
             Cited answers
           </span>
+          {onToggleExpanded ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  className="hidden lg:inline-flex"
+                  aria-label={expanded ? 'Show documents' : 'Widen the chat'}
+                  aria-pressed={expanded}
+                  onClick={onToggleExpanded}
+                >
+                  {expanded ? <SidebarRight aria-hidden /> : <SidebarLeft aria-hidden />}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{expanded ? 'Show documents' : 'Widen the chat'}</TooltipContent>
+            </Tooltip>
+          ) : null}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button variant="ghost" size="icon-sm" aria-label="New conversation" onClick={startNew} disabled={activeId === null}>
@@ -134,7 +163,7 @@ export function ChatPanel({ projectId }: { projectId: string }) {
             }}
           />
         ) : (
-          <ol className="flex flex-col gap-6 px-4 py-5 sm:px-6">
+          <ol className={cn('flex flex-col gap-6 px-4 py-5 sm:px-6', expanded && 'mx-auto w-full max-w-3xl')}>
             {messages.data?.map((message) => (
               <li key={message.id} data-message data-role={message.role} className="animate-fade-up">
                 {message.role === 'user' ? <UserMessage message={message} /> : <AssistantMessage message={message} />}
@@ -149,7 +178,8 @@ export function ChatPanel({ projectId }: { projectId: string }) {
         )}
       </div>
 
-      <footer className="flex flex-col gap-2 border-t bg-surface/60 p-3">
+      <footer className="border-t bg-surface/60 p-3">
+        <div className={cn('flex flex-col gap-2', expanded && 'mx-auto w-full max-w-3xl')}>
         <ChatComposer
           ref={composer}
           onSend={send}
@@ -158,6 +188,7 @@ export function ChatPanel({ projectId }: { projectId: string }) {
           placeholder={docs.length === 0 && documents.isSuccess ? 'Add a document to start asking…' : undefined}
         />
         {hint ? <p className="px-1 text-xs text-muted-foreground">{hint}</p> : null}
+        </div>
       </footer>
     </section>
   );

@@ -42,7 +42,8 @@ function Header() {
           <Wordmark />
         </Link>
         <nav aria-label="Page" className="hidden items-center gap-6 text-sm text-ink-2 md:flex">
-          <a href="#how-rag-works" className="transition-colors hover:text-foreground">How RAG works</a>
+          <a href="#how-rag-works" className="transition-colors hover:text-foreground">How it works</a>
+          <a href="#features" className="transition-colors hover:text-foreground">Features</a>
           <a href="#faq" className="transition-colors hover:text-foreground">FAQ</a>
         </nav>
         <div className="flex items-center gap-3">

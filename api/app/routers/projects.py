@@ -7,10 +7,7 @@ from app.core.db import get_session
 from app.dependencies import get_current_user, get_owned_project
 from app.models.user import User
 from app.models.project import Project
-from app.models.document import Document
 from app.schemas.project import ProjectCreate, ProjectRead, ProjectUpdate
-from pathlib import Path
-from app.models.project import Project
 import logging
 import asyncio
 from app.services import storage
@@ -80,16 +77,12 @@ async def delete_project(
     project: Project = Depends(get_owned_project),
     session: AsyncSession = Depends(get_session),
 ):
-    doc_query = select(Document).where(Document.project_id == project_id)
-    doc_result = await session.execute(doc_query)
-    documents = doc_result.scalars().all()
-    for doc in documents:
-        await session.delete(doc)
-
+    # Documents, chunks, conversations and messages go with it (ON DELETE CASCADE)
     await session.delete(project)
     await session.commit()
 
+    # Then the files. The rows are already gone, so a failure here is logged, not returned.
     try:
-        await asyncio.to_thread(storage.delete_folder, f"projects/{project_id}")
-    except Exception as e:
-        logger.exception("Failed to delete project folder %s", f"projects/{project_id}")
+        await asyncio.to_thread(storage.delete_folder, storage.project_prefix(project_id))
+    except Exception:
+        logger.exception("Failed to delete S3 files of project %s", project_id)

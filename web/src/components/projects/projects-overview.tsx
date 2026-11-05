@@ -4,8 +4,9 @@ import { PageContainer, PageHeader } from '~/components/layout/page-header';
 import { EmptyState } from '~/components/shared/empty-state';
 import { ErrorState } from '~/components/shared/error-state';
 import { Button } from '~/components/ui/button';
+import { Tooltip, TooltipContent, TooltipTrigger } from '~/components/ui/tooltip';
+import { MAX_PROJECTS_PER_USER } from '~/constants/uploads';
 import { useProjects } from '~/hooks/projects';
-import { plural } from '~/lib/format';
 import { ProjectCard, ProjectCardSkeleton } from './project-card';
 import { ProjectFormDialog } from './project-form-dialog';
 
@@ -20,8 +21,22 @@ export function ProjectsOverview() {
   const projects = useProjects();
   const [creating, setCreating] = React.useState(false);
   const count = projects.data?.length ?? 0;
+  const atLimit = count >= MAX_PROJECTS_PER_USER;
 
-  const newButton = (
+  const newButton = atLimit ? (
+    // A disabled button gets no hover events, so the tooltip sits on a wrapper.
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span tabIndex={0} className="rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <Button disabled>
+            <Add aria-hidden />
+            New project
+          </Button>
+        </span>
+      </TooltipTrigger>
+      <TooltipContent>Up to {MAX_PROJECTS_PER_USER} projects. Delete one to create another.</TooltipContent>
+    </Tooltip>
+  ) : (
     <Button onClick={() => setCreating(true)}>
       <Add aria-hidden />
       New project
@@ -35,7 +50,7 @@ export function ProjectsOverview() {
         title="Projects"
         description={
           projects.isSuccess && count > 0
-            ? `${plural(count, 'project')}. Each one answers only from its own documents.`
+            ? `${count} of ${MAX_PROJECTS_PER_USER} projects. Each one answers only from its own documents.`
             : 'Each project answers only from its own documents.'
         }
         actions={projects.isSuccess && count > 0 ? newButton : null}

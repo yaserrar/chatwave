@@ -13,14 +13,43 @@ import { Button } from '~/components/ui/button';
 import { Skeleton } from '~/components/ui/skeleton';
 import { useDocuments } from '~/hooks/documents';
 import { useProject } from '~/hooks/projects';
+import { MAX_DOCUMENTS_PER_PROJECT } from '~/constants/uploads';
 import { formatDate } from '~/lib/format';
+import { cn } from '~/lib/utils';
 import { isNotFound } from '~/services/api/client';
 
-/** One project: header, documents on the left, chat on the right (stacked on small screens). */
+// Remembered per browser: a reader who widens the chat keeps it wide on every project.
+const EXPANDED_KEY = 'chatwave-chat-expanded';
+
+function readExpanded() {
+  try {
+    return localStorage.getItem(EXPANDED_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * One project: header, documents on the left, chat on the right (stacked on small screens).
+ * On large screens the page is exactly one screen tall: the documents column scrolls on its own and the chat
+ * fills the rest, so its composer never needs scrolling to. The chat can be widened (documents hidden).
+ */
 export function ProjectScreen({ projectId }: { projectId: string }) {
   const project = useProject(projectId);
   const documents = useDocuments(projectId);
   const dropzone = React.useRef<UploadDropzoneHandle>(null);
+  const [chatExpanded, setChatExpanded] = React.useState(readExpanded);
+
+  function toggleChatExpanded() {
+    setChatExpanded((value) => {
+      try {
+        localStorage.setItem(EXPANDED_KEY, value ? '0' : '1');
+      } catch {
+        // private mode: the choice lasts for this page only
+      }
+      return !value;
+    });
+  }
 
   if (project.isError) {
     return isNotFound(project.error) ? (
@@ -33,8 +62,9 @@ export function ProjectScreen({ projectId }: { projectId: string }) {
   }
 
   return (
-    <div className="flex min-h-full flex-col">
-      <div className="border-b px-4 py-6 sm:px-6 lg:px-10">
+    // 3.5rem = the top bar (h-14)
+    <div className="flex min-h-full flex-col lg:h-[calc(100svh-3.5rem)] lg:min-h-0">
+      <div className="shrink-0 border-b px-4 py-6 sm:px-6 lg:px-10 lg:py-5">
         {project.data ? (
           <PageHeader
             leading={<ProjectTile id={project.data.id} name={project.data.name} size="lg" />}
@@ -49,7 +79,11 @@ export function ProjectScreen({ projectId }: { projectId: string }) {
             }
             actions={
               <>
-                <Button variant="outline" onClick={() => dropzone.current?.browse()}>
+                <Button
+                  variant="outline"
+                  onClick={() => dropzone.current?.browse()}
+                  disabled={(documents.data?.length ?? 0) >= MAX_DOCUMENTS_PER_PROJECT}
+                >
                   <DocumentUpload aria-hidden />
                   Add documents
                 </Button>
@@ -62,9 +96,19 @@ export function ProjectScreen({ projectId }: { projectId: string }) {
         )}
       </div>
 
-      <div className="grid flex-1 gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)] lg:gap-8 lg:px-10 lg:py-8">
-        <DocumentsPanel projectId={projectId} dropzoneRef={dropzone} />
-        <ChatPanel projectId={projectId} />
+      <div
+        className={cn(
+          'grid flex-1 gap-6 px-4 py-6 sm:px-6 lg:min-h-0 lg:gap-8 lg:px-10 lg:py-6',
+          chatExpanded ? 'lg:grid-cols-1' : 'lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)]',
+        )}
+      >
+        {/* Kept mounted when hidden, so uploads in progress and the open sheet survive a toggle */}
+        <div className={cn('lg:-mr-3 lg:min-h-0 lg:overflow-y-auto lg:pr-3', chatExpanded && 'lg:hidden')}>
+          <DocumentsPanel projectId={projectId} dropzoneRef={dropzone} />
+        </div>
+        <div className="lg:min-h-0">
+          <ChatPanel projectId={projectId} expanded={chatExpanded} onToggleExpanded={toggleChatExpanded} />
+        </div>
       </div>
     </div>
   );

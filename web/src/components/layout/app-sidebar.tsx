@@ -5,6 +5,7 @@ import { ProjectFormDialog } from '~/components/projects/project-form-dialog';
 import { ProjectTile } from '~/components/shared/project-tile';
 import { Skeleton } from '~/components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipTrigger } from '~/components/ui/tooltip';
+import { MAX_PROJECTS_PER_USER } from '~/constants/uploads';
 import { useProjects } from '~/hooks/projects';
 import { cn } from '~/lib/utils';
 import { ThemeToggle } from './theme-toggle';
@@ -39,6 +40,7 @@ function NavLink({
 export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const projects = useProjects();
   const [creating, setCreating] = React.useState(false);
+  const atLimit = (projects.data?.length ?? 0) >= MAX_PROJECTS_PER_USER;
 
   return (
     <div className="flex h-full flex-col">
@@ -67,13 +69,14 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
                 <button
                   type="button"
                   aria-label="New project"
-                  onClick={() => setCreating(true)}
-                  className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors outline-none hover:bg-sidebar-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+                  aria-disabled={atLimit || undefined}
+                  onClick={() => !atLimit && setCreating(true)}
+                  className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors outline-none hover:bg-sidebar-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring aria-disabled:cursor-not-allowed aria-disabled:opacity-50"
                 >
                   <Add aria-hidden className="size-4" />
                 </button>
               </TooltipTrigger>
-              <TooltipContent side="right">New project</TooltipContent>
+              <TooltipContent side="right">{atLimit ? `Up to ${MAX_PROJECTS_PER_USER} projects` : 'New project'}</TooltipContent>
             </Tooltip>
           </div>
 
@@ -109,14 +112,20 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
                   </Link>
                 </li>
               ))}
-              <li>
-                <button type="button" onClick={() => setCreating(true)} className={cn(itemClass, 'w-full text-muted-foreground')}>
-                  <span className="inline-flex size-5 items-center justify-center rounded-[5px] border border-dashed border-border-strong">
-                    <Add aria-hidden className="size-3.5" />
-                  </span>
-                  New project
-                </button>
-              </li>
+              {atLimit ? (
+                <li className="px-2 py-1 text-xs text-muted-foreground">
+                  {MAX_PROJECTS_PER_USER} of {MAX_PROJECTS_PER_USER} projects. Delete one to create another.
+                </li>
+              ) : (
+                <li>
+                  <button type="button" onClick={() => setCreating(true)} className={cn(itemClass, 'w-full text-muted-foreground')}>
+                    <span className="inline-flex size-5 items-center justify-center rounded-[5px] border border-dashed border-border-strong">
+                      <Add aria-hidden className="size-3.5" />
+                    </span>
+                    New project
+                  </button>
+                </li>
+              )}
             </ul>
           )}
         </div>

@@ -1,13 +1,12 @@
 from fastapi import APIRouter, Depends, status, HTTPException, UploadFile, BackgroundTasks
 from app.services.ingestion import process_document
-from sqlalchemy import func, select, update
+from sqlalchemy import func, select
 import uuid
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_session
 from app.dependencies import get_owned_project
 from app.models.project import Project
-from app.schemas.project import ProjectCreate, ProjectRead, ProjectUpdate
 
 from app.models.document import Document
 from app.schemas.document import DocumentRead, DocumentUrlRead
@@ -43,8 +42,6 @@ async def create_document(
     project: Project = Depends(get_owned_project),
     session: AsyncSession = Depends(get_session),
 ):
-    # do 3 type checks using env vars
-
     settings = get_settings()
     doc_count = await session.scalar(select(func.count()).select_from(Document).where(Document.project_id == project_id))
     if doc_count >= settings.max_documents_per_project:
@@ -56,11 +53,15 @@ async def create_document(
     filename = file.filename
     mime_type = file.content_type
     ext = Path(filename).suffix.lower()
-    content = await file.read()
-    size = len(content)
 
     if not ext or ext not in settings.allowed_extensions:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid file type")
+    # Reject big files before reading them into memory (file.size comes from the upload itself)
+    if file.size is not None and file.size > settings.max_file_size:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="File too large")
+
+    content = await file.read()
+    size = len(content)
     if size > settings.max_file_size:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="File too large")
     if size == 0:
@@ -72,9 +73,10 @@ async def create_document(
     content_type = storage.content_type_for(ext, file.content_type)
     try:
         await asyncio.to_thread(storage.upload_file, key, content, content_type)
-    except Exception as e:
-        logger.error(f"Failed to upload file: {e}")
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to upload file")
+    except Exception:
+        # Full error (with the AWS details) in the logs only
+        logger.exception("Upload to S3 failed for %s", key)
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Could not store the file. Try again.")
 
     document = Document(
         id=document_id, project_id=project_id, filename=filename, mime_type=mime_type, size=size, storage_path=key
@@ -95,7 +97,6 @@ async def get_document(
     session: AsyncSession = Depends(get_session),
 ):
     query = select(Document).where(Document.project_id == project_id).where(Document.id == document_id)
-    # query = select(Document).filter_by(project_id=project_id, id=document_id)
     result = await session.execute(query)
     document = result.scalar_one_or_none()
     if document is None:
@@ -148,5 +149,5 @@ async def delete_document(
 
     try:
         await asyncio.to_thread(storage.delete_file, document.storage_path)
-    except Exception as e:
+    except Exception:
         logger.exception("Failed to delete file %s", document.storage_path)

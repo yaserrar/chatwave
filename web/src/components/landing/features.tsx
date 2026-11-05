@@ -12,7 +12,7 @@ const FEATURES: { icon: Icon; title: string; text: string }[] = [
 
 export function Features() {
   return (
-    <Section>
+    <Section id="features">
       <SectionTitle eyebrow="What you get" title="Built for answers you can trust" />
       <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {FEATURES.map(({ icon: FeatureIcon, title, text }) => (

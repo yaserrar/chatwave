@@ -1,109 +1,92 @@
-import { DocumentText, Flash, Folder2 } from 'iconsax-react';
-import { SITE } from '~/constants/site';
+import { ArrowDown, DocumentUpload, MessageQuestion, TickCircle, type Icon } from 'iconsax-react';
 import { useSession } from '~/hooks/auth';
 import { EntryButton } from './entry-button';
+import { HeroDemo } from './hero-demo';
 
+/** What happens, in the order it happens: readable in two seconds. */
+const STEPS: { icon: Icon; title: string; text: string }[] = [
+  { icon: DocumentUpload, title: 'Drop your files', text: 'PDF, Markdown or text' },
+  { icon: MessageQuestion, title: 'Ask a question', text: 'In plain language' },
+  { icon: TickCircle, title: 'Get a cited answer', text: 'With the file and page' },
+];
+
+/**
+ * Landing hero. The headline says what the app does, one sentence says how, one button lets you in,
+ * then the product plays the whole flow so nobody has to imagine it.
+ */
 export function Hero() {
   const session = useSession();
 
   return (
-    <section className="relative overflow-hidden border-b">
-      <div aria-hidden className="bg-dot-grid mask-fade-edges pointer-events-none absolute inset-0" />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -top-40 left-1/2 size-[36rem] -translate-x-1/2 rounded-full bg-brand/10 blur-3xl"
-      />
-      <div className="relative mx-auto grid max-w-6xl items-center gap-14 px-5 py-16 sm:px-8 md:py-24 lg:grid-cols-[1.05fr_1fr]">
-        <div className="flex animate-fade-up flex-col items-start gap-6">
-          <a
-            href="#how-rag-works"
-            className="inline-flex items-center gap-2 rounded-full border bg-surface px-3 py-1 text-xs font-medium text-ink-2 transition-colors hover:text-foreground"
-          >
-            <span className="rounded-full bg-brand-subtle px-2 py-0.5 text-brand-ink">RAG</span>
-            Retrieval-Augmented Generation, ready to use
-          </a>
-          <h1 className="text-display max-w-xl text-balance sm:text-5xl sm:leading-[1.06]">
-            An AI that answers from <span className="text-brand">your documents</span>, and shows its sources.
-          </h1>
-          <p className="max-w-lg text-base leading-7 text-ink-2 text-pretty">
-            {SITE.name} reads your PDFs, Markdown and text files, finds the passages that match your question, and gives
-            them to the AI to write the answer. It cannot invent facts from thin air: every answer points to the document
-            and page behind it.
-          </p>
-          <div className="flex flex-col items-start gap-3">
-            <div className="flex flex-wrap items-center gap-3">
-              <EntryButton />
-              <a
-                href="#how-rag-works"
-                className="rounded-md px-3 py-2 text-sm font-medium text-ink-2 outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                See how it works
-              </a>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              {session.data
-                ? `Welcome back, ${session.data.name}.`
-                : 'No sign-up, no email. Your guest workspace is ready in a second.'}
-            </p>
+    <section aria-labelledby="hero-title" className="relative isolate overflow-hidden border-b">
+      {/* Background: a fine grid fading out, and a soft brand glow (a radial gradient, not a heavy blur) */}
+      <div aria-hidden className="pointer-events-none absolute inset-0 -z-10">
+        <div className="absolute inset-0 bg-grid mask-fade-edges opacity-70" />
+        <div className="absolute top-[38%] left-1/2 h-[34rem] w-[min(70rem,140%)] -translate-x-1/2 bg-[radial-gradient(ellipse_at_center,var(--highlight)_0%,transparent_65%)]" />
+      </div>
+
+      <div className="mx-auto flex max-w-4xl flex-col items-center px-5 pt-16 text-center sm:px-8 sm:pt-24">
+        <span className="inline-flex animate-fade-up items-center gap-2 rounded-full border bg-card/80 py-1 pr-3 pl-1 text-xs text-muted-foreground shadow-xs backdrop-blur">
+          <span className="rounded-full bg-brand-subtle px-2 py-0.5 font-medium text-brand-ink">Free</span>
+          No sign-up · your private workspace in one click
+        </span>
+
+        <h1
+          id="hero-title"
+          className="mt-7 animate-fade-up font-display text-[2.6rem] leading-[1.02] font-medium tracking-[-0.035em] text-balance [animation-delay:60ms] sm:text-6xl lg:text-[4.5rem]"
+        >
+          Upload your documents.
+          <br />
+          <span className="bg-linear-to-r from-brand to-tile-purple bg-clip-text text-transparent">Ask them anything.</span>
+        </h1>
+
+        <p className="mt-6 max-w-2xl animate-fade-up text-base leading-relaxed text-pretty text-ink-2 [animation-delay:120ms] sm:text-lg">
+          Chatwave reads your manuals, contracts and notes, then answers your questions{' '}
+          <strong className="font-medium text-foreground">using only what is written in them</strong>. Every answer shows
+          the file and page it came from, so you can check it.
+        </p>
+
+        <div className="mt-8 flex animate-fade-up flex-col items-center gap-3 [animation-delay:180ms]">
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <EntryButton />
+            <a
+              href="#how-rag-works"
+              className="inline-flex h-11 items-center gap-1.5 rounded-md px-4 text-[15px] font-medium text-ink-2 transition-colors outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              How it works
+              <ArrowDown aria-hidden className="size-4" />
+            </a>
           </div>
+          <p className="text-sm text-muted-foreground">
+            {session.data ? `Welcome back, ${session.data.name}. Your projects are waiting.` : 'Your files stay in your own workspace.'}
+          </p>
         </div>
+
+        <ol className="mt-12 grid w-full max-w-3xl animate-fade-up gap-3 [animation-delay:240ms] sm:grid-cols-3">
+          {STEPS.map((step, i) => (
+            <li key={step.title} className="flex items-center gap-3 rounded-xl border bg-card/80 px-4 py-3 text-left shadow-xs backdrop-blur">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-brand-subtle text-brand-ink">
+                <step.icon aria-hidden className="size-[18px]" />
+              </span>
+              <span className="flex min-w-0 flex-col">
+                <span className="text-h3 text-foreground">
+                  <span className="mr-1.5 font-mono text-[11px] text-brand-ink">0{i + 1}</span>
+                  {step.title}
+                </span>
+                <span className="text-[13px] text-muted-foreground">{step.text}</span>
+              </span>
+            </li>
+          ))}
+        </ol>
+      </div>
+
+      {/* The product, playing the flow above */}
+      <div className="mx-auto mt-12 max-w-5xl animate-fade-up px-3 pb-16 [animation-delay:320ms] sm:mt-14 sm:px-8 sm:pb-24">
         <HeroDemo />
+        <p className="mt-4 text-center text-xs text-muted-foreground">
+          A real answer from three supplier documents: the question is matched to the right passages, then answered from them only.
+        </p>
       </div>
     </section>
-  );
-}
-
-const SOURCES = [
-  { n: 1, file: 'pump-manual.pdf', page: 12, text: '…rated for continuous operation up to 85 °C at nominal flow…' },
-  { n: 2, file: 'safety-sheet.pdf', page: 3, text: '…above 90 °C the thermal cut-off stops the motor…' },
-];
-
-/** A static mock of the product: a question, the passages retrieved, and a cited answer. */
-function HeroDemo() {
-  return (
-    <div aria-hidden className="relative mx-auto w-full max-w-md animate-fade-up [animation-delay:120ms]">
-      <div className="rounded-xl border bg-surface p-4 shadow-lift sm:p-5">
-        <div className="mb-4 flex items-center gap-2 border-b pb-3 text-xs text-muted-foreground">
-          <Folder2 className="size-4" />
-          <span className="font-medium text-foreground">Supplier A</span>
-          <span className="text-metric ml-auto">3 documents</span>
-        </div>
-
-        <div className="flex flex-col gap-3 text-sm">
-          <p className="ml-auto max-w-[85%] rounded-xl rounded-br-sm bg-primary px-3.5 py-2.5 text-primary-foreground">
-            What is the maximum operating temperature of the pump?
-          </p>
-
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Flash className="size-3.5 text-brand" />
-            Found 2 relevant passages in 3 documents
-          </div>
-
-          <div className="max-w-[94%] rounded-xl rounded-bl-sm border bg-subtle px-3.5 py-2.5 text-ink-2">
-            <p className="leading-6">
-              The pump is rated for continuous operation up to <strong className="text-foreground">85 °C</strong>{' '}
-              <sup className="font-semibold text-brand">[1]</sup>. Above 90 °C the thermal cut-off stops it{' '}
-              <sup className="font-semibold text-brand">[2]</sup>.
-            </p>
-            <div className="mt-3 flex flex-col gap-1.5">
-              {SOURCES.map((source) => (
-                <div key={source.n} className="flex items-start gap-2 rounded-lg border bg-surface px-2.5 py-1.5">
-                  <span className="text-metric mt-px text-brand">[{source.n}]</span>
-                  <div className="min-w-0">
-                    <p className="text-metric flex items-center gap-1 text-foreground">
-                      <DocumentText className="size-3.5 shrink-0" />
-                      <span className="truncate">
-                        {source.file} · p. {source.page}
-                      </span>
-                    </p>
-                    <p className="truncate text-xs text-muted-foreground">{source.text}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
   );
 }

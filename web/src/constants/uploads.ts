@@ -11,5 +11,12 @@ export const ACCEPT_ATTRIBUTE = ALLOWED_EXTENSIONS.join(',');
 
 export const ALLOWED_LABEL = 'PDF, Markdown or text';
 
+/**
+ * The API's limits (MAX_DOCUMENTS_PER_PROJECT, MAX_PROJECTS_PER_USER in api/.env, defaults shown). Checked here
+ * too so the user learns it before uploading; the API still enforces them (409).
+ */
+export const MAX_DOCUMENTS_PER_PROJECT = 10;
+export const MAX_PROJECTS_PER_USER = 5;
+
 /** How often the documents list refreshes while a document is pending or processing. */
 export const STATUS_POLL_MS = 4000;

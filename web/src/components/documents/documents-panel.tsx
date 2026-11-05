@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import { ErrorState } from '~/components/shared/error-state';
 import { Skeleton } from '~/components/ui/skeleton';
 import { useDocuments, useUploadDocument } from '~/hooks/documents';
+import { MAX_DOCUMENTS_PER_PROJECT } from '~/constants/uploads';
 import { plural } from '~/lib/format';
 import { validateFiles } from '~/schemas/document';
 import { errorMessage } from '~/services/api/client';
@@ -21,10 +22,25 @@ export function DocumentsPanel({ projectId, dropzoneRef }: { projectId: string; 
   const [uploading, setUploading] = React.useState<UploadingFile[]>([]);
   const [openId, setOpenId] = React.useState<string | null>(null);
 
+  const docCount = documents.data?.length ?? 0;
+  // Uploads in flight count too: dropping 6 files twice must not go over the limit.
+  const slotsLeft = Math.max(0, MAX_DOCUMENTS_PER_PROJECT - docCount - uploading.length);
+
   const addFiles = React.useCallback(
     async (files: File[]) => {
-      const { accepted, rejected } = validateFiles(files);
+      const { accepted: valid, rejected } = validateFiles(files);
       for (const r of rejected) toast.error(`${r.name} was not added`, { description: r.reason });
+      if (!valid.length) return;
+
+      // Project limit: keep the first files that fit, explain the rest in one message.
+      const accepted = valid.slice(0, slotsLeft);
+      const overLimit = valid.length - accepted.length;
+      if (overLimit > 0) {
+        toast.error(
+          accepted.length ? `${plural(overLimit, 'file')} not added` : 'This project is full',
+          { description: `A project can hold up to ${MAX_DOCUMENTS_PER_PROJECT} documents. Delete one to make room.` },
+        );
+      }
       if (!accepted.length) return;
 
       const items = accepted.map((file) => ({ key: crypto.randomUUID(), name: file.name, size: file.size, file }));
@@ -46,7 +62,7 @@ export function DocumentsPanel({ projectId, dropzoneRef }: { projectId: string; 
       const done = results.filter((r) => r.status === 'fulfilled').length;
       if (done > 0) toast.success(`${plural(done, 'document')} added`, { description: 'Processing starts in the background.' });
     },
-    [upload],
+    [upload, slotsLeft],
   );
 
   const docs = documents.data ?? [];
@@ -62,15 +78,25 @@ export function DocumentsPanel({ projectId, dropzoneRef }: { projectId: string; 
           </h2>
           <p className="text-[13px] text-muted-foreground">
             {documents.isSuccess && docs.length > 0
-              ? `${plural(docs.length, 'document')} · ${ready} ready to answer`
-              : 'The knowledge this project answers from.'}
+              ? `${docs.length} of ${MAX_DOCUMENTS_PER_PROJECT} documents · ${ready} ready to answer`
+              : `The knowledge this project answers from. Up to ${MAX_DOCUMENTS_PER_PROJECT} documents.`}
           </p>
         </div>
       </div>
 
       {documents.isSuccess && docs.length > 0 ? <ReadinessBar ready={ready} total={docs.length} /> : null}
 
-      <UploadDropzone ref={dropzoneRef} onFiles={addFiles} compact={!isEmpty && !documents.isPending} disabled={documents.isError} />
+      <UploadDropzone
+        ref={dropzoneRef}
+        onFiles={addFiles}
+        compact={!isEmpty && !documents.isPending}
+        disabled={documents.isError || (documents.isSuccess && slotsLeft === 0)}
+      />
+      {documents.isSuccess && slotsLeft === 0 && uploading.length === 0 ? (
+        <p className="-mt-2 px-1 text-xs text-muted-foreground">
+          This project is full ({MAX_DOCUMENTS_PER_PROJECT} documents). Delete one to add another.
+        </p>
+      ) : null}
 
       {documents.isPending ? (
         <ul className="flex flex-col gap-1" aria-busy="true" aria-label="Loading documents">
