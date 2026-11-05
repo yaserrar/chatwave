@@ -12,4 +12,6 @@ export const documentsApi = {
     form.append('file', file);
     return api.upload<DocumentDto>(base(projectId), form);
   },
+  /** Deletes the row and the file on disk (204). */
+  remove: (projectId: string, documentId: string) => api.delete(`${base(projectId)}/${documentId}`),
 };

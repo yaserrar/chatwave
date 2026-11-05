@@ -1,4 +1,4 @@
-import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { queryOptions, useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { STATUS_POLL_MS } from '~/constants/uploads';
 import { qk } from '~/lib/query-keys';
 import { documentsApi } from '~/services/api/documents';
@@ -29,6 +29,24 @@ export function useDocument(projectId: string, documentId: string | null) {
     placeholderData: () =>
       qc.getQueryData<DocumentDto[]>(qk.documents.list(projectId))?.find((d) => d.id === documentId),
   });
+}
+
+/**
+ * Deletes a document and drops it from the cached list right away. The detail cache is cleared by the
+ * caller once the sheet showing it has closed (see `forgetDocument`), so it is not refetched as a 404.
+ */
+export function useDeleteDocument(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (documentId: string) => documentsApi.remove(projectId, documentId),
+    onSuccess: (_, documentId) => {
+      qc.setQueryData<DocumentDto[]>(qk.documents.list(projectId), (list) => list?.filter((d) => d.id !== documentId));
+    },
+  });
+}
+
+export function forgetDocument(qc: QueryClient, projectId: string, documentId: string) {
+  qc.removeQueries({ queryKey: qk.documents.detail(projectId, documentId) });
 }
 
 /** Uploads one file. The documents panel calls it once per dropped file. */

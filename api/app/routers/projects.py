@@ -5,7 +5,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_session
 from app.models.project import Project
+from app.models.document import Document
 from app.schemas.project import ProjectCreate, ProjectRead, ProjectUpdate
+from pathlib import Path
 
 router = APIRouter(tags=["projects"])
 
@@ -77,6 +79,16 @@ async def delete_project(
     if project is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
 
+    doc_query = select(Document).where(Document.project_id == project_id)
+    doc_result = await session.execute(doc_query)
+    documents = doc_result.scalars().all()
+    for doc in documents:
+        await session.delete(doc)
+
     await session.delete(project)
     await session.commit()
+
+    for document in documents:
+        Path(document.storage_path).unlink(missing_ok=True)
+
 

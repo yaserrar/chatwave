@@ -1,11 +1,15 @@
 import * as React from 'react';
-import { Copy, TickCircle, Warning2 } from 'iconsax-react';
+import { useQueryClient } from '@tanstack/react-query';
+import { Copy, TickCircle, Trash, Warning2 } from 'iconsax-react';
+import { toast } from 'sonner';
+import { ConfirmDialog } from '~/components/shared/confirm-dialog';
 import { DOC_STATUS_HINTS, DocStatusBadge } from '~/components/shared/doc-status';
 import { ErrorState } from '~/components/shared/error-state';
 import { FileIcon, fileKind } from '~/components/shared/file-icon';
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '~/components/ui/sheet';
+import { Button } from '~/components/ui/button';
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '~/components/ui/sheet';
 import { Skeleton } from '~/components/ui/skeleton';
-import { useDocument } from '~/hooks/documents';
+import { forgetDocument, useDeleteDocument, useDocument } from '~/hooks/documents';
 import { formatBytes, formatCount, formatDateTime, plural } from '~/lib/format';
 
 /** Details of one document (GET /projects/{id}/documents/{documentId}), opened from its row. */
@@ -21,14 +25,27 @@ export function DocumentSheet({
   return (
     <Sheet open={Boolean(documentId)} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full gap-0 p-0 sm:max-w-md">
-        {documentId ? <DocumentDetails projectId={projectId} documentId={documentId} /> : null}
+        {documentId ? (
+          <DocumentDetails projectId={projectId} documentId={documentId} onClose={() => onOpenChange(false)} />
+        ) : null}
       </SheetContent>
     </Sheet>
   );
 }
 
-function DocumentDetails({ projectId, documentId }: { projectId: string; documentId: string }) {
+function DocumentDetails({ projectId, documentId, onClose }: { projectId: string; documentId: string; onClose: () => void }) {
+  const qc = useQueryClient();
   const doc = useDocument(projectId, documentId);
+  const remove = useDeleteDocument(projectId);
+  const [confirming, setConfirming] = React.useState(false);
+
+  async function confirmDelete() {
+    const name = doc.data?.filename ?? 'Document';
+    await remove.mutateAsync(documentId);
+    toast.success(`Deleted “${name}”`, { description: 'Future answers will no longer use it.' });
+    onClose();
+    forgetDocument(qc, projectId, documentId);
+  }
 
   if (doc.isError) {
     return (
@@ -127,6 +144,23 @@ function DocumentDetails({ projectId, documentId }: { projectId: string; documen
           </ol>
         </section>
       </div>
+
+      <SheetFooter className="border-t p-4">
+        <Button variant="destructive" onClick={() => setConfirming(true)}>
+          <Trash aria-hidden />
+          Delete document
+        </Button>
+      </SheetFooter>
+
+      <ConfirmDialog
+        open={confirming}
+        onOpenChange={setConfirming}
+        destructive
+        title={`Delete “${d.filename}”?`}
+        description="The file and everything learned from it are removed. Answers will no longer cite it. This cannot be undone."
+        confirmLabel="Delete document"
+        onConfirm={confirmDelete}
+      />
     </div>
   );
 }
