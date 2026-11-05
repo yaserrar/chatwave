@@ -57,4 +57,5 @@ export function useDeleteProject() {
 export function forgetProject(qc: QueryClient, projectId: string) {
   qc.removeQueries({ queryKey: qk.projects.detail(projectId) });
   qc.removeQueries({ queryKey: qk.documents.all(projectId) });
+  qc.removeQueries({ queryKey: qk.conversations.all(projectId) });
 }

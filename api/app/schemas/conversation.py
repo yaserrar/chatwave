@@ -27,6 +27,13 @@ class SourceRead(BaseModel):
     page_number: int
 
 
+class AskRequest(BaseModel):
+    # Spaces around the question are removed, so "   " counts as empty
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    question: str = Field(min_length=1, max_length=4000, description="The question to answer from the project's documents")
+
+
 class MessageRead(BaseModel):
     id: uuid.UUID
     conversation_id: uuid.UUID

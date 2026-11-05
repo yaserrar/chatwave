@@ -1,3 +1,4 @@
+import logging
 from fastapi import APIRouter, Depends, status, HTTPException
 from sqlalchemy import select
 import uuid
@@ -7,7 +8,10 @@ from app.core.db import get_session
 from app.models.project import Project
 from app.models.conversation import Conversation
 from app.models.message import Message
-from app.schemas.conversation import ConversationCreate, ConversationRead, MessageRead
+from app.schemas.conversation import AskRequest, ConversationCreate, ConversationRead, MessageRead
+from app.services.rag import answer_question
+
+logger = logging.getLogger(__name__)
 
 # No prefix: the paths start with /projects/... or /conversations/..., so they are written in full below
 router = APIRouter(tags=["conversations"])
@@ -52,3 +56,21 @@ async def get_messages(conversation_id: uuid.UUID, session: AsyncSession = Depen
     query = select(Message).where(Message.conversation_id == conversation_id).order_by(Message.created_at)
     result = await session.execute(query)
     return result.scalars().all()
+
+
+@router.post("/conversations/{conversation_id}/ask", response_model=MessageRead)
+async def ask(conversation_id: uuid.UUID, payload: AskRequest, session: AsyncSession = Depends(get_session)):
+    """Answers a question from the project's documents. Returns the assistant's message, with its sources."""
+    conversation = await session.get(Conversation, conversation_id)
+    if conversation is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
+
+    try:
+        return await answer_question(session, conversation, payload.question)
+    except ValueError as e:
+        # Our own clear errors, e.g. "CLAUDE_API_KEY is not set"
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+    except Exception:
+        # OpenAI or Claude failed (network, rate limit...): full error in the logs, short message for the client
+        logger.exception("Answering failed for conversation %s", conversation_id)
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Could not generate an answer right now. Try again.")

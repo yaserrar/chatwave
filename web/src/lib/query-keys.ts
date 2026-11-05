@@ -13,4 +13,9 @@ export const qk = {
     list: (projectId: string) => ['documents', projectId, 'list'] as const,
     detail: (projectId: string, documentId: string) => ['documents', projectId, 'detail', documentId] as const,
   },
+  conversations: {
+    all: (projectId: string) => ['conversations', projectId] as const,
+    list: (projectId: string) => ['conversations', projectId, 'list'] as const,
+  },
+  messages: (conversationId: string) => ['messages', conversationId] as const,
 };
