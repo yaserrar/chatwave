@@ -23,13 +23,16 @@ TEXT_EXTENSIONS = {".md", ".txt"}
 @lru_cache
 def _client():
     settings = get_settings()
-    if not (settings.aws_access_key_id and settings.aws_secret_access_key and settings.s3_bucket):
-        raise ValueError("S3 is not configured. Set AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY and S3_BUCKET in api/.env.")
+    if not settings.s3_bucket:
+        raise ValueError("S3 is not configured. Set S3_BUCKET in api/.env.")
+    if bool(settings.aws_access_key_id) != bool(settings.aws_secret_access_key):
+        raise ValueError("Set both AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY, or neither to use an IAM role.")
+    # Without keys, boto3 falls back to its default chain (the EC2 instance's IAM role).
     return boto3.client(
         "s3",
         region_name=settings.aws_region,
-        aws_access_key_id=settings.aws_access_key_id,
-        aws_secret_access_key=settings.aws_secret_access_key,
+        aws_access_key_id=settings.aws_access_key_id or None,
+        aws_secret_access_key=settings.aws_secret_access_key or None,
         # Presigned links must point at the bucket's own region (bucket.s3.eu-west-3.amazonaws.com).
         # The global address (bucket.s3.amazonaws.com) is treated as us-east-1 and rejects the signature.
         endpoint_url=f"https://s3.{settings.aws_region}.amazonaws.com",
