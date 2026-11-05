@@ -1,4 +1,4 @@
-import { Link, useParams } from '@tanstack/react-router';
+import { Link, useParams, useRouterState } from '@tanstack/react-router';
 import { ArrowRight2, HambergerMenu } from 'iconsax-react';
 import { Button } from '~/components/ui/button';
 import { useProject } from '~/hooks/projects';
@@ -10,9 +10,10 @@ function ProjectCrumb({ projectId }: { projectId: string }) {
   return <>{project.data?.name ?? (project.isError ? 'Not found' : '…')}</>;
 }
 
-/** Top bar: menu button (< lg) and breadcrumbs (Projects › project). */
+/** Top bar: menu button (< lg) and breadcrumbs (Projects › project, or Documentation). */
 export function AppTopbar({ onOpenNav }: { onOpenNav: () => void }) {
   const { projectId } = useParams({ strict: false });
+  const onDocumentation = useRouterState({ select: (s) => s.location.pathname.startsWith('/documentation') });
 
   return (
     <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 border-b bg-background/80 px-3 backdrop-blur-md sm:px-4">
@@ -21,6 +22,11 @@ export function AppTopbar({ onOpenNav }: { onOpenNav: () => void }) {
       </Button>
 
       <nav aria-label="Breadcrumb" className="flex min-w-0 flex-1 items-center">
+        {onDocumentation ? (
+          <span aria-current="page" className="truncate px-1 text-sm font-medium text-foreground">
+            Documentation
+          </span>
+        ) : (
         <ol className="flex min-w-0 items-center gap-1 text-sm">
           <li className={cn('flex min-w-0 items-center gap-1', projectId && 'hidden sm:flex')}>
             {projectId ? (
@@ -45,6 +51,7 @@ export function AppTopbar({ onOpenNav }: { onOpenNav: () => void }) {
             </li>
           ) : null}
         </ol>
+        )}
       </nav>
     </header>
   );

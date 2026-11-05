@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { Link } from '@tanstack/react-router';
-import { Add, Element3, type Icon } from 'iconsax-react';
+import { Add, Book1, Element3, type Icon } from 'iconsax-react';
 import { ProjectFormDialog } from '~/components/projects/project-form-dialog';
 import { ProjectTile } from '~/components/shared/project-tile';
 import { Skeleton } from '~/components/ui/skeleton';
@@ -15,9 +15,19 @@ const itemClass =
 
 const ACTIVE = { 'aria-current': 'page' } as const;
 
-function NavLink({ icon: Icon, label, onNavigate }: { icon: Icon; label: string; onNavigate?: () => void }) {
+function NavLink({
+  to,
+  icon: Icon,
+  label,
+  onNavigate,
+}: {
+  to: '/' | '/documentation';
+  icon: Icon;
+  label: string;
+  onNavigate?: () => void;
+}) {
   return (
-    <Link to="/" activeOptions={{ exact: true }} activeProps={ACTIVE} className={itemClass} onClick={onNavigate}>
+    <Link to={to} activeOptions={{ exact: true }} activeProps={ACTIVE} className={itemClass} onClick={onNavigate}>
       <Icon aria-hidden className="size-[18px] shrink-0" />
       {label}
     </Link>
@@ -41,7 +51,10 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       <nav aria-label="Main" className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-2.5 py-2">
         <ul className="flex flex-col gap-0.5">
           <li>
-            <NavLink icon={Element3} label="All projects" onNavigate={onNavigate} />
+            <NavLink to="/" icon={Element3} label="All projects" onNavigate={onNavigate} />
+          </li>
+          <li>
+            <NavLink to="/documentation" icon={Book1} label="Documentation" onNavigate={onNavigate} />
           </li>
         </ul>
 
