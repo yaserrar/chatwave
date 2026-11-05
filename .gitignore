@@ -5,4 +5,4 @@
 */uploads/
 **/node_modules/
 pgvector/
-./.vscode/
+.vscode/
