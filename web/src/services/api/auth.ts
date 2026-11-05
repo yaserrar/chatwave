@@ -6,5 +6,4 @@ export const authApi = {
   /** 401 when there is no valid session. */
   me: () => api.get<UserDto>('/auth/me'),
   startAnonymous: () => api.post<UserDto>('/auth/anonymous'),
-  logout: () => api.post<void>('/auth/logout'),
 };
