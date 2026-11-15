@@ -19,9 +19,8 @@ export function Hero() {
 
   return (
     <section aria-labelledby="hero-title" className="relative isolate overflow-hidden border-b">
-      {/* Background: a fine grid fading out, and a soft brand glow (a radial gradient, not a heavy blur) */}
+      {/* Background: a soft brand glow (a radial gradient, not a heavy blur) */}
       <div aria-hidden className="pointer-events-none absolute inset-0 -z-10">
-        <div className="absolute inset-0 bg-grid mask-fade-edges opacity-70" />
         <div className="absolute top-[38%] left-1/2 h-[34rem] w-[min(70rem,140%)] -translate-x-1/2 bg-[radial-gradient(ellipse_at_center,var(--highlight)_0%,transparent_65%)]" />
       </div>
 
