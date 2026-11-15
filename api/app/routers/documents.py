@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, status, HTTPException, UploadFile, BackgroundTasks
+from fastapi import APIRouter, Depends, status, HTTPException, UploadFile
 from sqlalchemy import func, select
 from aio_pika.abc import AbstractExchange
 from sqlalchemy.ext.asyncio import AsyncSession

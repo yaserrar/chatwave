@@ -9,6 +9,12 @@ x-logging: &logging
   driver: json-file
   options: { max-size: "10m", max-file: "3" }
 
+x-api-env: &api-env
+  DATABASE_URL: postgresql+asyncpg://chatwave:${DB_PASSWORD}@db:5432/chatwave
+  RABBITMQ_URL: amqp://chatwave:${RABBITMQ_PASSWORD}@rabbitmq:5672/
+  CORS_ALLOW_ORIGINS: '["https://${DOMAIN}"]'
+  COOKIE_SECURE: "true"
+
 services:
   db:
     image: pgvector/pgvector:pg17
@@ -34,11 +40,10 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     env_file: .env.api
-    environment:
-      DATABASE_URL: postgresql+asyncpg://chatwave:${DB_PASSWORD}@db:5432/chatwave
-      CORS_ALLOW_ORIGINS: '["https://${DOMAIN}"]'
-      COOKIE_SECURE: "true"
+    environment: *api-env
     labels:
       - traefik.enable=true
       # Longer rule = higher priority, so /api wins over the web router below.
@@ -63,8 +68,55 @@ services:
       - traefik.http.services.chatwave-web.loadbalancer.server.port=80
     networks: [proxy]
 
+  rabbitmq:
+    image: rabbitmq:4-management-alpine
+    restart: unless-stopped
+    logging: *logging
+    # RabbitMQ stores its data under the machine's name: a fixed hostname keeps queues and messages
+    # across container re-creations (otherwise each deploy would start empty)
+    hostname: rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: chatwave
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    # Dashboard on the server only (not public): open it through an SSH tunnel
+    ports:
+      - "127.0.0.1:15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [internal]
+
+  worker-ingestion: &worker
+    image: ghcr.io/${IMAGE_OWNER}/chatwave-api:${IMAGE_TAG:-latest} # same image as the API
+    command: python -m app.workers.ingestion # replaces "alembic + uvicorn"
+    restart: unless-stopped
+    logging: *logging
+    depends_on:
+      db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      api:
+        condition: service_started # the API runs the migrations first
+    env_file: .env.api
+    environment: *api-env
+    networks: [internal] # no Traefik labels: workers receive no HTTP traffic
+
+  worker-cleanup:
+    <<: *worker
+    command: python -m app.workers.cleanup
+
+  worker-activity:
+    <<: *worker
+    command: python -m app.workers.activity
+
 volumes:
   db-data:
+  rabbitmq-data:
 
 networks:
   proxy:
