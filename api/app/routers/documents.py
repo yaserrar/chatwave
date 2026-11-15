@@ -1,11 +1,9 @@
 from fastapi import APIRouter, Depends, status, HTTPException, UploadFile, BackgroundTasks
-from app.services.ingestion import process_document
 from sqlalchemy import func, select
-import uuid
+from aio_pika.abc import AbstractExchange
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_session
-from app.dependencies import get_owned_project
 from app.models.project import Project
 
 from app.models.document import Document
@@ -16,6 +14,11 @@ from pathlib import Path
 from app.services import storage
 import asyncio
 import logging
+import uuid
+
+from aio_pika.abc import AbstractExchange
+from app.core.events import publish
+from app.dependencies import get_events_exchange, get_owned_project  # add get_events_exchange
 
 router = APIRouter(tags=["documents"])
 
@@ -38,12 +41,14 @@ async def get_documents(
 async def create_document(
     project_id: uuid.UUID,
     file: UploadFile,
-    background_tasks: BackgroundTasks,
     project: Project = Depends(get_owned_project),
     session: AsyncSession = Depends(get_session),
+    exchange: AbstractExchange = Depends(get_events_exchange),
 ):
     settings = get_settings()
-    doc_count = await session.scalar(select(func.count()).select_from(Document).where(Document.project_id == project_id))
+    doc_count = await session.scalar(
+        select(func.count()).select_from(Document).where(Document.project_id == project_id)
+    )
     if doc_count >= settings.max_documents_per_project:
         raise HTTPException(
             status.HTTP_409_CONFLICT, f"Document limit reached ({settings.max_documents_per_project} per project)"
@@ -85,7 +90,16 @@ async def create_document(
     session.add(document)
     await session.commit()
     await session.refresh(document)
-    background_tasks.add_task(process_document, document.id)
+    # Hand the processing to the ingestion worker (app/workers/ingestion.py) through RabbitMQ
+    try:
+        await publish(exchange, "document.uploaded", {"document_id": document.id, "project_id": project_id})
+    except Exception:
+        # The row is saved but nobody will process it: say so instead of leaving it "Queued" forever
+        logger.exception("Could not publish document.uploaded for %s", document.id)
+        document.status = "failed"
+        document.error_message = "Could not queue the document for processing. Delete it and upload it again."
+        await session.commit()
+        await session.refresh(document)
     return document
 
 
@@ -136,6 +150,7 @@ async def delete_document(
     document_id: uuid.UUID,
     project: Project = Depends(get_owned_project),
     session: AsyncSession = Depends(get_session),
+    exchange: AbstractExchange = Depends(get_events_exchange),
 ):
     query = select(Document).where(Document.project_id == project_id).where(Document.id == document_id)
     result = await session.execute(query)
@@ -147,7 +162,19 @@ async def delete_document(
 
     await session.commit()
 
+    # try:
+    #     await asyncio.to_thread(storage.delete_file, document.storage_path)
+    # except Exception:
+    #     logger.exception("Failed to delete file %s", document.storage_path)
+
+    # The file in S3 is deleted by the cleanup worker (app/workers/cleanup.py).
+    # storage_path goes in the message: the row is gone, so the worker could not look it up.
     try:
-        await asyncio.to_thread(storage.delete_file, document.storage_path)
+        await publish(
+            exchange,
+            "document.deleted",
+            {"document_id": document.id, "project_id": project_id, "storage_path": document.storage_path},
+        )
     except Exception:
-        logger.exception("Failed to delete file %s", document.storage_path)
+        # The document is already deleted for the user; only the file is left behind
+        logger.exception("Could not publish document.deleted for %s", document.id)

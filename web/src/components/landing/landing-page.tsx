@@ -23,13 +23,53 @@ export function LandingPage() {
         <Faq />
         <FinalCta />
       </main>
-      <footer className="border-t">
-        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-5 py-8 text-sm text-muted-foreground sm:flex-row sm:px-8">
-          <Wordmark />
-          <p>{SITE.tagline}. Answers come only from your documents.</p>
-        </div>
-      </footer>
+      <Footer />
     </div>
+  );
+}
+
+const FOOTER_LINKS = [
+  { href: "#how-rag-works", label: "How it works" },
+  { href: "#features", label: "Features" },
+  { href: "#faq", label: "FAQ" },
+] as const;
+
+function Footer() {
+  return (
+    <footer className="relative overflow-hidden border-t bg-subtle/50">
+      <div
+        aria-hidden
+        className="bg-dot-grid mask-fade-b pointer-events-none absolute inset-0"
+      />
+      <div className="relative mx-auto max-w-6xl px-5 sm:px-8">
+        <div className="flex flex-col gap-8 py-12 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex max-w-sm flex-col gap-3">
+            <Wordmark />
+            <p className="text-sm leading-6 text-ink-2 text-pretty">
+              {SITE.description}
+            </p>
+          </div>
+          <nav aria-label="Footer" className="flex flex-col gap-3 text-sm">
+            <span className="text-eyebrow text-brand-ink">Explore</span>
+            {FOOTER_LINKS.map((link) => (
+              <a
+                key={link.href}
+                href={link.href}
+                className="text-ink-2 transition-colors hover:text-foreground"
+              >
+                {link.label}
+              </a>
+            ))}
+          </nav>
+        </div>
+        <div className="flex flex-col items-center justify-between gap-3 border-t border-hairline py-6 text-sm text-muted-foreground sm:flex-row">
+          <p>
+            © {new Date().getFullYear()} {SITE.name}. {SITE.tagline}.
+          </p>
+          <ThemeToggle />
+        </div>
+      </div>
+    </footer>
   );
 }
 

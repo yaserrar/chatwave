@@ -9,6 +9,8 @@ from app.core.db import get_session
 from app.core.rate_limit import limiter
 from app.models import User, Project, Conversation
 
+from aio_pika.abc import AbstractExchange
+
 
 async def get_current_user(request: Request, session: AsyncSession = Depends(get_session)) -> User:
     token = request.cookies.get(get_settings().session_cookie_name)
@@ -45,3 +47,8 @@ async def get_owned_conversation(
 async def limit_messages(user: User = Depends(get_current_user)) -> None:
     n = get_settings().max_messages_per_minute
     limiter.check(f"ask:{user.id}", n, 60, f"You can send at most {n} messages per minute")
+
+
+def get_events_exchange(request: Request) -> AbstractExchange:
+    """The RabbitMQ exchange opened at startup (see lifespan in main.py)."""
+    return request.app.state.events_exchange

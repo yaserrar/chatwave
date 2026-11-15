@@ -36,6 +36,8 @@ class Settings(BaseSettings):
     max_requests_per_minute: int = 120
     max_guests_per_ip_per_hour: int = 10
 
+    rabbitmq_url: str = "amqp://guest:guest@localhost:5672/"
+
     model_config = SettingsConfigDict(env_file=".env")
 
 

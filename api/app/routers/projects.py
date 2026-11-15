@@ -11,6 +11,10 @@ from app.schemas.project import ProjectCreate, ProjectRead, ProjectUpdate
 import logging
 import asyncio
 from app.services import storage
+from aio_pika.abc import AbstractExchange
+from app.core.events import publish
+from app.dependencies import get_events_exchange
+
 from app.core.config import get_settings
 
 logger = logging.getLogger(__name__)
@@ -76,13 +80,24 @@ async def delete_project(
     project_id: uuid.UUID,
     project: Project = Depends(get_owned_project),
     session: AsyncSession = Depends(get_session),
+    exchange: AbstractExchange = Depends(get_events_exchange),
 ):
     # Documents, chunks, conversations and messages go with it (ON DELETE CASCADE)
     await session.delete(project)
     await session.commit()
 
     # Then the files. The rows are already gone, so a failure here is logged, not returned.
+    # try:
+    #     await asyncio.to_thread(storage.delete_folder, storage.project_prefix(project_id))
+    # except Exception:
+    #     logger.exception("Failed to delete S3 files of project %s", project_id)
+    # Publish project.deleted event
     try:
-        await asyncio.to_thread(storage.delete_folder, storage.project_prefix(project_id))
+        await publish(
+            exchange,
+            "project.deleted",
+            {"project_id": project_id},
+        )
     except Exception:
-        logger.exception("Failed to delete S3 files of project %s", project_id)
+        logger.exception("Could not publish project.deleted for %s", project_id)
+    # The project is already deleted for the user; only the files are left behind

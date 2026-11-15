@@ -16,7 +16,7 @@ from app.services.extraction import extract_pages
 logger = logging.getLogger(__name__)
 
 
-async def process_document(document_id: uuid.UUID) -> None:
+async def process_document(document_id: uuid.UUID) -> str | None:
     """
     Background task started after an upload: extract -> chunk -> embed -> save chunks.
     Status goes pending -> processing -> ready, or failed with the error message.
@@ -25,7 +25,7 @@ async def process_document(document_id: uuid.UUID) -> None:
     async with SessionLocal() as session:
         doc = await session.get(Document, document_id)
         if doc is None:
-            return  # deleted before we started
+            return None
 
         doc.status = "processing"
         doc.error_message = None
@@ -59,13 +59,16 @@ async def process_document(document_id: uuid.UUID) -> None:
             await session.commit()
             logger.info("Document %s ready: %d chunks", document_id, len(chunks))
 
+            return "ready"
         except Exception as e:
             logger.exception("Processing failed for document %s", document_id)
             # Undo half-saved chunks, then load the document again (the old object is expired after a rollback)
             await session.rollback()
             doc = await session.get(Document, document_id)
             if doc is None:
-                return  # deleted while we were processing it
+                return None
             doc.status = "failed"
             doc.error_message = str(e)
             await session.commit()
+
+            return "failed"
