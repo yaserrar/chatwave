@@ -1,6 +1,8 @@
 import * as React from 'react';
+import { Link21 } from 'iconsax-react';
 import { toast } from 'sonner';
 import { ErrorState } from '~/components/shared/error-state';
+import { Button } from '~/components/ui/button';
 import { Skeleton } from '~/components/ui/skeleton';
 import { useDocuments, useUploadDocument } from '~/hooks/documents';
 import { MAX_DOCUMENTS_PER_PROJECT } from '~/constants/uploads';
@@ -10,6 +12,7 @@ import { errorMessage } from '~/services/api/client';
 import type { UploadingFile } from '~/types/document';
 import { DocumentRow, UploadingRow } from './document-row';
 import { DocumentSheet } from './document-sheet';
+import { ImportUrlDialog } from './import-url-dialog';
 import { UploadDropzone, type UploadDropzoneHandle } from './upload-dropzone';
 
 /**
@@ -21,6 +24,7 @@ export function DocumentsPanel({ projectId, dropzoneRef }: { projectId: string; 
   const upload = useUploadDocument(projectId);
   const [uploading, setUploading] = React.useState<UploadingFile[]>([]);
   const [openId, setOpenId] = React.useState<string | null>(null);
+  const [importing, setImporting] = React.useState(false);
 
   const docCount = documents.data?.length ?? 0;
   // Uploads in flight count too: dropping 6 files twice must not go over the limit.
@@ -82,6 +86,16 @@ export function DocumentsPanel({ projectId, dropzoneRef }: { projectId: string; 
               : `The knowledge this project answers from. Up to ${MAX_DOCUMENTS_PER_PROJECT} documents.`}
           </p>
         </div>
+        <Button
+          variant="outline"
+          size="sm"
+          className="shrink-0"
+          onClick={() => setImporting(true)}
+          disabled={!documents.isSuccess || slotsLeft === 0}
+        >
+          <Link21 aria-hidden />
+          Add from link
+        </Button>
       </div>
 
       {documents.isSuccess && docs.length > 0 ? <ReadinessBar ready={ready} total={docs.length} /> : null}
@@ -129,6 +143,7 @@ export function DocumentsPanel({ projectId, dropzoneRef }: { projectId: string; 
       ) : null}
 
       <DocumentSheet projectId={projectId} documentId={openId} onOpenChange={(open) => !open && setOpenId(null)} />
+      <ImportUrlDialog projectId={projectId} open={importing} onOpenChange={setImporting} />
     </section>
   );
 }

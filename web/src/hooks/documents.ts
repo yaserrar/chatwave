@@ -100,6 +100,19 @@ export function useDownloadDocument(projectId: string) {
   });
 }
 
+/** Adds a document from a link. Errors are shown in the dialog (silent: no toast). */
+export function useImportDocument(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: (url: string) => documentsApi.importUrl(projectId, url),
+    onSuccess: (doc) => {
+      qc.setQueryData<DocumentDto[]>(qk.documents.list(projectId), (list) => (list ? [...list, doc] : [doc]));
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: qk.documents.list(projectId) }),
+  });
+}
+
 /** Uploads one file. The documents panel calls it once per dropped file. */
 export function useUploadDocument(projectId: string) {
   const qc = useQueryClient();

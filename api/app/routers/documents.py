@@ -141,11 +141,9 @@ async def create_document_from_url(
     except url_fetch.LinkError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
-    _check_file(file.filename, len(file))
+    _check_file(file.filename, len(file.content))
 
-    return await _store_document(
-        session, exchange, project_id, Path(body.url).name, "application/octet-stream", file, url=body.url
-    )
+    return await _store_document(session, exchange, project_id, file.filename, file.content_type, file.content)
 
 
 @router.get("/{project_id}/documents/{document_id}", response_model=DocumentRead, status_code=status.HTTP_200_OK)

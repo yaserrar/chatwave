@@ -131,13 +131,27 @@ What goes in `data`:
 
 ### Upload a document
 
-1. The browser sends the file to `POST /api/projects/{id}/documents`.
+1. The browser sends the file to `POST /api/projects/{id}/documents`. Or it sends a link to `POST /api/projects/{id}/documents/from-url`, and the API downloads the file itself (see [Adding a document from a link](#adding-a-document-from-a-link)).
 2. The API checks the type, the size and the per-project limit, stores the file in S3 and saves the row with status `pending`.
 3. The API publishes `document.uploaded` and answers right away.
 4. The exchange copies the message into `q.ingestion` and `q.activity`.
 5. The ingestion worker runs `process_document()`: it downloads the file, extracts the text, splits it into chunks, embeds them with OpenAI and saves them. The status goes `processing` → `ready`, or `failed` with the reason.
 6. The worker acks the message and publishes `document.ready` or `document.failed`.
 7. The activity worker logs `document.uploaded`, then `document.ready`. The browser polls the documents list every 4 seconds and shows the new status.
+
+### Adding a document from a link
+
+`app/services/url_fetch.py` downloads the file inside the request (it's capped, so it stays short), then the endpoint hands it to the same code as an upload. From there, nothing differs.
+
+The server makes this request, not the user's browser, so a link could point at things only the server can reach: the EC2 metadata service at `169.254.169.254` (which hands out the server's AWS credentials), the database, RabbitMQ. This is called **SSRF**. To prevent it:
+
+- Only `http` and `https` links are accepted.
+- The name is resolved first, and **every** address behind it must be public (`ipaddress.is_global`). That excludes localhost, private networks, link-local addresses and IPv4 hidden in IPv6.
+- Redirects are followed by hand, up to 3, and **each new address is checked again**: a public link can redirect to a private one.
+- The body is read in pieces and stops past 10 MB, whatever size the site announces. There's a 15 s timeout.
+- Web pages (`text/html`) are refused. Only PDF, Markdown and text files are accepted, like uploads.
+
+Known gap: the address is checked, then resolved again when connecting. A hostile DNS server could answer differently the second time (*DNS rebinding*). Closing it means connecting to the exact IP that was checked.
 
 ### Delete a document
 

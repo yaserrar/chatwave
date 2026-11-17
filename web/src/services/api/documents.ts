@@ -12,6 +12,11 @@ export const documentsApi = {
     form.append('file', file);
     return api.upload<DocumentDto>(base(projectId), form);
   },
+  /**
+   * The API downloads the file behind a direct link (PDF, Markdown or text, up to 10 MB), then treats it like
+   * an upload. 400 with a readable reason when the link can't be used (web page, private address, too big…).
+   */
+  importUrl: (projectId: string, url: string) => api.post<DocumentDto>(`${base(projectId)}/from-url`, { url }),
   /** Deletes the row and the file in S3 (204). */
   remove: (projectId: string, documentId: string) => api.delete(`${base(projectId)}/${documentId}`),
   /** Presigned S3 link: inline for the preview, or as an attachment for downloading. */

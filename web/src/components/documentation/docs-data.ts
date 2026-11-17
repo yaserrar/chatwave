@@ -128,10 +128,19 @@ export const ENDPOINT_GROUPS: { title: string; file: string; endpoints: Endpoint
       {
         method: 'POST',
         path: '/api/projects/{project_id}/documents',
-        summary: 'Upload one file (multipart field "file") to S3. Returns at once; processing runs in the background.',
+        summary: 'Upload one file (multipart field "file") to S3, then publish document.uploaded: the ingestion worker processes it.',
         request: 'multipart/form-data: file',
         response: '201 · DocumentRead (status "pending")',
-        errors: '404 · 400 wrong type / empty / too large · 500 S3 upload failed',
+        errors: '404 · 409 project full · 400 wrong type / empty / too large · 502 S3 upload failed',
+      },
+      {
+        method: 'POST',
+        path: '/api/projects/{project_id}/documents/from-url',
+        summary:
+          'Download a file from a direct link (public addresses only, redirects checked, 10 MB, 15 s), then the same as an upload.',
+        request: '{ url }',
+        response: '201 · DocumentRead (status "pending")',
+        errors: '404 · 409 project full · 400 web page / private address / not found / wrong type / too large · 422 empty',
       },
       { method: 'GET', path: '/api/projects/{project_id}/documents/{document_id}', summary: 'One document. Both ids must match.', response: 'DocumentRead', errors: '404' },
       {
@@ -142,7 +151,7 @@ export const ENDPOINT_GROUPS: { title: string; file: string; endpoints: Endpoint
         response: '{ id, url, expires_in }',
         errors: '404',
       },
-      { method: 'DELETE', path: '/api/projects/{project_id}/documents/{document_id}', summary: 'Delete the row (chunks cascade), then the file in S3.', response: '204', errors: '404' },
+      { method: 'DELETE', path: '/api/projects/{project_id}/documents/{document_id}', summary: 'Delete the row (chunks cascade), then publish document.deleted: the cleanup worker removes the file from S3.', response: '204', errors: '404' },
     ],
   },
   {
