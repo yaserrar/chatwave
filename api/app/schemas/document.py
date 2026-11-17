@@ -27,3 +27,10 @@ class DocumentUrlRead(BaseModel):
     expires_in: int
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class DocumentFromUrl(BaseModel):
+    # Spaces around a pasted link are removed, so " https://… " still works
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    url: str = Field(min_length=1, max_length=2048, description="Direct link to a PDF, Markdown or text file")

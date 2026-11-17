@@ -7,7 +7,7 @@ from app.core.db import get_session
 from app.models.project import Project
 
 from app.models.document import Document
-from app.schemas.document import DocumentRead, DocumentUrlRead
+from app.schemas.document import DocumentRead, DocumentUrlRead, DocumentFromUrl
 
 from app.core.config import get_settings
 from pathlib import Path
@@ -15,10 +15,10 @@ from app.services import storage
 import asyncio
 import logging
 import uuid
+from app.services import url_fetch
 
-from aio_pika.abc import AbstractExchange
 from app.core.events import publish
-from app.dependencies import get_events_exchange, get_owned_project  # add get_events_exchange
+from app.dependencies import get_events_exchange, get_owned_project
 
 router = APIRouter(tags=["documents"])
 
@@ -37,14 +37,7 @@ async def get_documents(
     return documents
 
 
-@router.post("/{project_id}/documents", response_model=DocumentRead, status_code=status.HTTP_201_CREATED)
-async def create_document(
-    project_id: uuid.UUID,
-    file: UploadFile,
-    project: Project = Depends(get_owned_project),
-    session: AsyncSession = Depends(get_session),
-    exchange: AbstractExchange = Depends(get_events_exchange),
-):
+async def _check_document_limit(session: AsyncSession, project_id: uuid.UUID):
     settings = get_settings()
     doc_count = await session.scalar(
         select(func.count()).select_from(Document).where(Document.project_id == project_id)
@@ -54,42 +47,53 @@ async def create_document(
             status.HTTP_409_CONFLICT, f"Document limit reached ({settings.max_documents_per_project} per project)"
         )
 
-    document_id = uuid.uuid4()
-    filename = file.filename
-    mime_type = file.content_type
-    ext = Path(filename).suffix.lower()
 
+def _check_file(filename: str | None, size: int):
+    """Same rules for an uploaded file and a downloaded one. Nothing to wait for, so a plain function."""
+    settings = get_settings()
+    # First: Path(None) would crash with a 500 before the other checks
+    if not filename:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="File must have a name")
+    ext = Path(filename).suffix.lower()
     if not ext or ext not in settings.allowed_extensions:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid file type")
-    # Reject big files before reading them into memory (file.size comes from the upload itself)
-    if file.size is not None and file.size > settings.max_file_size:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="File too large")
-
-    content = await file.read()
-    size = len(content)
     if size > settings.max_file_size:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="File too large")
     if size == 0:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="File is empty")
-    if not file.filename:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="File must have a name")
 
+
+async def _store_document(
+    session: AsyncSession,
+    exchange: AbstractExchange,
+    project_id: uuid.UUID,
+    filename: str,
+    content_type: str | None,  # None when the browser or the site did not say
+    content: bytes,
+) -> Document:
+    """Stores the file in S3, saves the row, and hands the processing to the ingestion worker."""
+    document_id = uuid.uuid4()
+    ext = Path(filename).suffix.lower()
     key = storage.document_key(project_id, document_id, ext)
-    content_type = storage.content_type_for(ext, file.content_type)
+    content_type = storage.content_type_for(ext, content_type)
     try:
         await asyncio.to_thread(storage.upload_file, key, content, content_type)
     except Exception:
-        # Full error (with the AWS details) in the logs only
         logger.exception("Upload to S3 failed for %s", key)
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Could not store the file. Try again.")
 
     document = Document(
-        id=document_id, project_id=project_id, filename=filename, mime_type=mime_type, size=size, storage_path=key
+        id=document_id,
+        project_id=project_id,
+        filename=filename,
+        mime_type=content_type,
+        size=len(content),
+        storage_path=key,
     )
-
     session.add(document)
     await session.commit()
     await session.refresh(document)
+
     # Hand the processing to the ingestion worker (app/workers/ingestion.py) through RabbitMQ
     try:
         await publish(exchange, "document.uploaded", {"document_id": document.id, "project_id": project_id})
@@ -101,6 +105,47 @@ async def create_document(
         await session.commit()
         await session.refresh(document)
     return document
+
+
+@router.post("/{project_id}/documents", response_model=DocumentRead, status_code=status.HTTP_201_CREATED)
+async def create_document(
+    project_id: uuid.UUID,
+    file: UploadFile,
+    project: Project = Depends(get_owned_project),
+    session: AsyncSession = Depends(get_session),
+    exchange: AbstractExchange = Depends(get_events_exchange),
+):
+    await _check_document_limit(session, project_id)
+
+    # Reject big files before reading them into memory (file.size comes from the upload itself)
+    if file.size is not None and file.size > get_settings().max_file_size:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="File too large")
+
+    content = await file.read()
+    _check_file(file.filename, len(content))
+
+    return await _store_document(session, exchange, project_id, file.filename, file.content_type, content)
+
+
+@router.post("/{project_id}/documents/from-url", response_model=DocumentRead, status_code=status.HTTP_201_CREATED)
+async def create_document_from_url(
+    project_id: uuid.UUID,
+    body: DocumentFromUrl,
+    project: Project = Depends(get_owned_project),
+    session: AsyncSession = Depends(get_session),
+    exchange: AbstractExchange = Depends(get_events_exchange),
+):
+    await _check_document_limit(session, project_id)
+    try:
+        file = await url_fetch.download(body.url)
+    except url_fetch.LinkError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+    _check_file(file.filename, len(file))
+
+    return await _store_document(
+        session, exchange, project_id, Path(body.url).name, "application/octet-stream", file, url=body.url
+    )
 
 
 @router.get("/{project_id}/documents/{document_id}", response_model=DocumentRead, status_code=status.HTTP_200_OK)
@@ -161,11 +206,6 @@ async def delete_document(
     await session.delete(document)
 
     await session.commit()
-
-    # try:
-    #     await asyncio.to_thread(storage.delete_file, document.storage_path)
-    # except Exception:
-    #     logger.exception("Failed to delete file %s", document.storage_path)
 
     # The file in S3 is deleted by the cleanup worker (app/workers/cleanup.py).
     # storage_path goes in the message: the row is gone, so the worker could not look it up.
