@@ -61,7 +61,7 @@ const STEPS: Record<Phase, Step[]> = {
       icon: SearchNormal1,
       title: 'Retrieve',
       short: 'Find the best passages',
-      text: 'The database finds the 5 passages closest in meaning to the question (cosine similarity). Only this project is searched, so documents from other projects never leak in.',
+      text: 'The database finds the 5 best passages, searching by meaning (cosine similarity) and by exact words at the same time. Only this project is searched, so documents from other projects never leak in. If nothing is close enough, the answer says so instead of guessing.',
       visual: <RetrieveVisual />,
     },
     {
@@ -75,7 +75,7 @@ const STEPS: Record<Phase, Step[]> = {
       icon: MagicStar,
       title: 'Generate a cited answer',
       short: 'Claude writes it',
-      text: 'Claude writes the answer from those passages only. The citation markers [1], [2] are matched back to the real files and pages, so you can open the source and check.',
+      text: 'Claude writes the answer from those passages only. The citation markers [1], [2] are matched back to the real files and pages: click one to open the document with the passage highlighted.',
       visual: <AnswerVisual />,
     },
   ],

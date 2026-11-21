@@ -47,7 +47,7 @@ Add an **A** record `chatwave` (**Proxied**) pointing at the same Elastic IP as 
    ```
    The first one covers the **files** (`/*`). The second covers the **bucket itself**: deleting a project lists every file under `projects/{id}/` before deleting them, and listing is an action on the bucket, not on the files. Without it, the cleanup worker gets `AccessDenied` and the message lands in `q.dead`.
 3. The instance metadata hop limit of 2 is already set for Dropwave, so containers find the role's credentials.
-4. Previews and downloads use presigned URLs opened from the browser. If the app fetches them cross-origin, add `https://chatwave.asrar.software` to the bucket's CORS `AllowedOrigins`.
+4. Previews, downloads and the citation viewer use presigned URLs opened from the browser. The Markdown/text preview and the viewer (pdf.js) read the file with `fetch`, cross-origin: add `https://chatwave.asrar.software` (and `http://localhost:5173` for development) to the bucket's CORS `AllowedOrigins`, with `GET` and `HEAD` allowed.
 
 ## 3. App folder on the server
 

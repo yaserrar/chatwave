@@ -50,7 +50,7 @@ The rule behind it: **the API answers the browser and never does slow work itsel
 | **Ingestion worker** | Turns an uploaded file into searchable chunks | `api/app/workers/ingestion.py` |
 | **Cleanup worker** | Deletes files from S3 after a document or project is deleted | `api/app/workers/cleanup.py` |
 | **Activity worker** | Logs every event (it gets a copy of all of them) | `api/app/workers/activity.py` |
-| **Postgres + pgvector** | Projects, documents, chunks with their embeddings, conversations | `api/app/models/` |
+| **Postgres + pgvector** | Projects, documents, chunks with their embeddings and full-text index, conversations | `api/app/models/` |
 | **S3** | The uploaded files (private bucket) | `api/app/services/storage.py` |
 | **OpenAI / Claude** | Embeddings / written answers | `api/app/services/embeddings.py`, `llm.py` |
 
@@ -167,8 +167,31 @@ Known gap: the address is checked, then resolved again when connecting. A hostil
 
 ### Ask a question (no RabbitMQ)
 
-1. The API saves the question, embeds it with OpenAI, and finds the 5 closest chunks from the project's ready documents with pgvector.
-2. Claude writes the answer from those passages. The API streams it to the browser as Server-Sent Events (`delta` pieces, then `done` with the saved message and its sources).
+1. The API saves the question, embeds it with OpenAI, and runs a **hybrid search** in the project's ready documents (see [Retrieval, confidence and citations](#retrieval-confidence-and-citations)).
+2. It grades the evidence. Under the floor (nothing close in meaning, none of the question's words found), Claude is not called: the answer is a "not in your documents" message in the question's language, with the closest passages, sent as the only (`done`) event.
+3. Otherwise Claude writes the answer from the best 5 passages. The API streams it to the browser as Server-Sent Events (`delta` pieces, then `done` with the saved message, its cited passages, its confidence and `not_found`).
+
+## Retrieval, confidence and citations
+
+Everything a question goes through before and after Claude, in `api/app/services/`:
+
+| Step | What happens | Code |
+|---|---|---|
+| **Keyword query** | The question's meaningful words (English and French stop words removed, accents folded) joined with OR. Words of 4+ letters lose one common English or French ending and match as prefixes, so a plural question finds a singular text (`chargebacks` → `chargeback:*`, `kilométrique` → `kilometr:*`, which finds "kilomètre") | `retrieval.keyword_query`, `search_stem` |
+| **Two searches** | pgvector orders chunks by cosine distance; Postgres full-text search orders those containing the words by `ts_rank_cd`. They run one after the other on the request's database session. Each proposes 20 candidates, only from this project's ready documents | `retrieval.vector_search`, `keyword_search` |
+| **Fusion** | Reciprocal Rank Fusion: a chunk scores `1 / (60 + rank)` in each list, the sums give the order. The best `RETRIEVAL_TOP_K` (5) go to Claude | `retrieval.reciprocal_rank_fusion` |
+| **Confidence** | Evidence = best similarity + 0.25 × keyword coverage (share of the question's words in the best passage). High from 0.60 when the closest passage is also the best keyword match, medium from 0.45, low below that | `confidence.grade` |
+| **Not found** | The floor needs both signals to be weak: best similarity under 0.30 **and** none of the question's keywords in the passages found. A weak but non-zero signal goes to Claude with low confidence, because refusing an answerable question costs more than one call. Under the floor, the answer is fixed, in the question's language (French when the question has clear French signals, English otherwise, other languages included), and Claude is not called. A follow-up that leans on the conversation ("and the second one?", "pourquoi ?": no keyword of its own, three words or fewer, an opening like "and"/"what about", or a referring word) is searched again with the previous question, and only skips Claude if that is under the floor too; any other question in a conversation meets the floor like a first one. Requests about the documents as a whole ("summarise these documents", "de quoi parlent ces fichiers ?") always reach Claude, but only when they ask for nothing else | `rag.answer_question`, `confidence.grade`, `is_follow_up`, `is_document_wide`, `question_language` |
+| **Claude's own "not found"** | The system prompt tells Claude to start with `[[NOT_FOUND]]` when the passages don't answer. The API watches the start of the stream, removes the marker (even split across pieces) and saves the answer with `not_found = true` | `confidence.NotFoundMarker` |
+| **Citations** | Each cited `[n]` is saved in `messages.sources` with what the viewer needs: `passage` (the n), `document_id`, `filename`, `page_number`, `chunk_id`, `char_start` / `char_end` and the passage text (`excerpt`) | `rag.cited_sources` |
+
+**Keyword search** uses a generated column, `chunks.search_vector = to_tsvector('chatwave_text', content)`, with a GIN index. `chatwave_text` is the `simple` configuration (no stemming, no stop words, so it treats English and French alike) plus `unaccent`, created by the migration. Postgres computes the column itself, so documents indexed before it existed were searchable by keyword as soon as the migration ran.
+
+**Offsets.** Ingestion records where each chunk sits in its page's text (`char_start`, `char_end`; for Markdown and text, in the whole file as the browser decodes it). Chunks indexed earlier have none: nothing needs re-indexing, because the viewer finds a passage by its text and only uses the offsets as a hint when the same text appears twice.
+
+**The viewer** (`web/src/components/citations/`) opens from a citation in an answer, or from its sources list. It fetches the file from its presigned S3 URL. PDFs are drawn with pdf.js (react-pdf, loaded only when needed), every page at its real size but only those near the screen rendered; Markdown and text files are rendered as in the preview. The passage is matched against the rendered text comparing only letters and digits, so line breaks, hyphenation, ligatures, accents and Markdown syntax don't matter, then painted with the CSS Custom Highlight API (no DOM changes). When the text can't be pinpointed, the cited page still opens and the passage is shown above it. Answers saved before passages were recorded open on the cited page.
+
+**Measuring it.** `api/evals/` holds a fixed set of documents and questions and a script that scores vector-only, keyword-only and hybrid retrieval (hit rate, MRR), the confidence of each question and the refusal rate. The thresholds above were set on its calibration questions; the held-out questions (marked `holdout`) were written afterwards, terse, paraphrased and cross-language ones among them, and are reported apart to show how the thresholds hold on new questions. See the README for how to run it, and `api/evals/report.md` for the latest numbers.
 
 ## What happens when something fails
 
@@ -247,3 +270,4 @@ The dashboard (`http://localhost:15672` locally; through an SSH tunnel in produc
 - **No delayed retries yet.** A crashed message goes straight to `q.dead`. Retrying a few times with a delay before giving up would need a retry queue with a TTL.
 - **Activity only logs.** It doesn't store events anywhere yet.
 - **Rate limits are in memory, per API process** (see the README), so they assume a single API container.
+- **Confidence thresholds come from a small evaluation set** (three documents, 13 chunks, 58 questions of which 24 held out). Questions on a topic the documents mention without answering it look like answerable ones to the search, and an off-topic question that shares one word with a passage goes past the floor: those rely on Claude's `[[NOT_FOUND]]`. The keyword stemming is a short list of endings, not a real stemmer, and the fixed "not found" answer exists in English and French only.

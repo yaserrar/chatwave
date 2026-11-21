@@ -2,7 +2,7 @@ import { Section, SectionTitle } from './section';
 
 const STACK = [
   { name: 'OpenAI embeddings', role: 'text-embedding-3-small turns text into 1,536-number vectors' },
-  { name: 'PostgreSQL + pgvector', role: 'stores vectors and finds the closest ones by cosine distance' },
+  { name: 'PostgreSQL + pgvector', role: 'finds passages by meaning (vectors) and by words (full-text search)' },
   { name: 'Claude', role: 'writes the answer from the retrieved passages only' },
   { name: 'S3 storage', role: 'keeps your original files, with short-lived preview links' },
 ];
