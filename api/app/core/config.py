@@ -1,3 +1,4 @@
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -16,6 +17,8 @@ class Settings(BaseSettings):
     # Claude writes the answers (embeddings stay on OpenAI)
     claude_api_key: str | None = None
     llm_model: str = "claude-opus-5-5"
+    # Passages given to Claude for each question (best ones from the hybrid search)
+    retrieval_top_k: int = Field(5, ge=1, le=20)
 
     # File storage: a private S3 bucket (app/services/storage.py)
     aws_access_key_id: str | None = None
