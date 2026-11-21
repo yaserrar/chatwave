@@ -1,0 +1,388 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [6 0 R 8 0 R 10 0 R 12 0 R 14 0 R 16 0 R 18 0 R 20 0 R] /Count 8 >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>
+endobj
+5 0 obj
+<< /Length 982 >>
+stream
+BT
+/F2 16 Tf
+72 760 Td
+(Orbit Payments API Guide) Tj
+/F1 9 Tf
+0 -18 Td
+(Orbit is a fictional payment service. This made-up guide is used to evaluate Chatwave.) Tj
+/F2 13 Tf
+0 -34 Td
+(1. Authentication) Tj
+/F1 11 Tf
+15 TL
+0 -10 Td
+T*
+T*
+(Every request to the Orbit API must carry an API key in the Orbit-Key header. Requests) Tj
+T*
+(without a key, or with a revoked key, are answered with 401 Unauthorized.) Tj
+T*
+T*
+(There are two kinds of keys. Live keys start with orb_live_ and move real money. Test) Tj
+T*
+(keys start with orb_test_ and only work against the sandbox at sandbox.orbit.example.) Tj
+T*
+(Never use a live key in a test environment or in client-side code.) Tj
+T*
+T*
+(Keys must be rotated at least every 90 days. When you create a new key, the old one) Tj
+T*
+(keeps working for a 24-hour grace period, so you can deploy the new key without) Tj
+T*
+(downtime. A key that leaked must be revoked immediately from the dashboard.) Tj
+ET
+BT
+/F1 9 Tf
+290 40 Td
+(Page 1) Tj
+ET
+endstream
+endobj
+6 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 5 0 R /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> >>
+endobj
+7 0 obj
+<< /Length 905 >>
+stream
+BT
+/F2 16 Tf
+72 760 Td
+(Orbit Payments API Guide) Tj
+/F1 9 Tf
+0 -18 Td
+(Orbit is a fictional payment service. This made-up guide is used to evaluate Chatwave.) Tj
+/F2 13 Tf
+0 -34 Td
+(2. Rate limits) Tj
+/F1 11 Tf
+15 TL
+0 -10 Td
+T*
+T*
+(Each API key may send up to 600 requests per minute. On top of that, short bursts of up) Tj
+T*
+(to 50 requests in the same second are accepted.) Tj
+T*
+T*
+(When a key goes over its limit, Orbit answers with HTTP status 429 Too Many Requests and) Tj
+T*
+(a Retry-After header giving the number of seconds to wait. Clients should wait at least) Tj
+T*
+(that long, then retry with exponential backoff and jitter.) Tj
+T*
+T*
+(Limits are counted per key, not per account: splitting traffic between a reporting key) Tj
+T*
+(and a checkout key keeps a slow report from blocking payments. Enterprise plans can ask) Tj
+T*
+(for higher limits.) Tj
+ET
+BT
+/F1 9 Tf
+290 40 Td
+(Page 2) Tj
+ET
+endstream
+endobj
+8 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 7 0 R /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> >>
+endobj
+9 0 obj
+<< /Length 990 >>
+stream
+BT
+/F2 16 Tf
+72 760 Td
+(Orbit Payments API Guide) Tj
+/F1 9 Tf
+0 -18 Td
+(Orbit is a fictional payment service. This made-up guide is used to evaluate Chatwave.) Tj
+/F2 13 Tf
+0 -34 Td
+(3. Webhooks) Tj
+/F1 11 Tf
+15 TL
+0 -10 Td
+T*
+T*
+(Orbit sends webhook events \(payment.succeeded, payment.failed, refund.created\) to the) Tj
+T*
+(HTTPS endpoint you register. Each event is signed with HMAC-SHA256 using your webhook) Tj
+T*
+(secret, and the signature is sent in the Orbit-Signature header. Always verify it before) Tj
+T*
+(trusting the event.) Tj
+T*
+T*
+(Your endpoint must answer with a 2xx status within 10 seconds. Otherwise the delivery) Tj
+T*
+(counts as failed and Orbit retries it up to 8 times over 24 hours, with exponential) Tj
+T*
+(backoff. After the last attempt the event is marked as undelivered and shown in the) Tj
+T*
+(dashboard.) Tj
+T*
+T*
+(Events can arrive more than once and out of order. Use the event id to ignore) Tj
+T*
+(duplicates.) Tj
+ET
+BT
+/F1 9 Tf
+290 40 Td
+(Page 3) Tj
+ET
+endstream
+endobj
+10 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 9 0 R /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> >>
+endobj
+11 0 obj
+<< /Length 847 >>
+stream
+BT
+/F2 16 Tf
+72 760 Td
+(Orbit Payments API Guide) Tj
+/F1 9 Tf
+0 -18 Td
+(Orbit is a fictional payment service. This made-up guide is used to evaluate Chatwave.) Tj
+/F2 13 Tf
+0 -34 Td
+(4. Errors and idempotency) Tj
+/F1 11 Tf
+15 TL
+0 -10 Td
+T*
+T*
+(Errors return a JSON body with a stable code. The most common codes are: ORB-4471, the) Tj
+T*
+(card was declined for insufficient funds; ORB-4012, the card has expired; ORB-5003, the) Tj
+T*
+(upstream card processor timed out. Codes starting with ORB-5 are temporary and can be) Tj
+T*
+(retried.) Tj
+T*
+T*
+(To retry a payment safely, send an Idempotency-Key header with a unique value. Orbit) Tj
+T*
+(stores the result of the first request for 24 hours and returns the same result for) Tj
+T*
+(every retry with the same key, so a customer is never charged twice.) Tj
+ET
+BT
+/F1 9 Tf
+290 40 Td
+(Page 4) Tj
+ET
+endstream
+endobj
+12 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 11 0 R /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> >>
+endobj
+13 0 obj
+<< /Length 731 >>
+stream
+BT
+/F2 16 Tf
+72 760 Td
+(Orbit Payments API Guide) Tj
+/F1 9 Tf
+0 -18 Td
+(Orbit is a fictional payment service. This made-up guide is used to evaluate Chatwave.) Tj
+/F2 13 Tf
+0 -34 Td
+(5. Refunds) Tj
+/F1 11 Tf
+15 TL
+0 -10 Td
+T*
+T*
+(Payments can be refunded in full or in part, through the refunds endpoint or from the) Tj
+T*
+(dashboard. Several partial refunds are allowed, as long as their total does not exceed) Tj
+T*
+(the original amount.) Tj
+T*
+T*
+(A refund can be issued up to 180 days after the payment. Customers usually see the money) Tj
+T*
+(back on their statement within 5 to 10 business days, depending on their bank. Orbit) Tj
+T*
+(fees on the original payment are not returned.) Tj
+ET
+BT
+/F1 9 Tf
+290 40 Td
+(Page 5) Tj
+ET
+endstream
+endobj
+14 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 13 0 R /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> >>
+endobj
+15 0 obj
+<< /Length 716 >>
+stream
+BT
+/F2 16 Tf
+72 760 Td
+(Orbit Payments API Guide) Tj
+/F1 9 Tf
+0 -18 Td
+(Orbit is a fictional payment service. This made-up guide is used to evaluate Chatwave.) Tj
+/F2 13 Tf
+0 -34 Td
+(6. Payouts) Tj
+/F1 11 Tf
+15 TL
+0 -10 Td
+T*
+T*
+(Orbit pays out your available balance to your bank account every business day. Funds) Tj
+T*
+(from a payment become available two business days after it succeeds, so a payment made) Tj
+T*
+(on Monday is paid out on Wednesday.) Tj
+T*
+T*
+(Payouts below 20 EUR are held and added to the next payout. You can pause payouts from) Tj
+T*
+(the dashboard, for example while you change bank accounts; paused funds stay safe in) Tj
+T*
+(your Orbit balance.) Tj
+ET
+BT
+/F1 9 Tf
+290 40 Td
+(Page 6) Tj
+ET
+endstream
+endobj
+16 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 15 0 R /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> >>
+endobj
+17 0 obj
+<< /Length 756 >>
+stream
+BT
+/F2 16 Tf
+72 760 Td
+(Orbit Payments API Guide) Tj
+/F1 9 Tf
+0 -18 Td
+(Orbit is a fictional payment service. This made-up guide is used to evaluate Chatwave.) Tj
+/F2 13 Tf
+0 -34 Td
+(7. Disputes) Tj
+/F1 11 Tf
+15 TL
+0 -10 Td
+T*
+T*
+(When a customer disputes a payment with their bank \(a chargeback\), Orbit notifies you) Tj
+T*
+(with a dispute.created event and immediately holds the disputed amount plus a 15 USD) Tj
+T*
+(dispute fee.) Tj
+T*
+T*
+(You have 7 days to respond with evidence such as receipts, delivery tracking or the) Tj
+T*
+(customer's messages. The bank then decides, which can take up to 75 days. If you win,) Tj
+T*
+(the amount and the fee are returned; if you lose or do not respond, both are kept.) Tj
+ET
+BT
+/F1 9 Tf
+290 40 Td
+(Page 7) Tj
+ET
+endstream
+endobj
+18 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 17 0 R /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> >>
+endobj
+19 0 obj
+<< /Length 677 >>
+stream
+BT
+/F2 16 Tf
+72 760 Td
+(Orbit Payments API Guide) Tj
+/F1 9 Tf
+0 -18 Td
+(Orbit is a fictional payment service. This made-up guide is used to evaluate Chatwave.) Tj
+/F2 13 Tf
+0 -34 Td
+(8. Testing in the sandbox) Tj
+/F1 11 Tf
+15 TL
+0 -10 Td
+T*
+T*
+(The sandbox behaves like production but never moves money. Use the test card 4242 4242) Tj
+T*
+(4242 4242 with any future expiry date to simulate a successful payment.) Tj
+T*
+T*
+(Special amounts trigger specific outcomes: a payment of 13.37 always fails with) Tj
+T*
+(ORB-5003, and a payment of 40.04 is declined with ORB-4471. Sandbox data is wiped on the) Tj
+T*
+(first day of every month.) Tj
+ET
+BT
+/F1 9 Tf
+290 40 Td
+(Page 8) Tj
+ET
+endstream
+endobj
+20 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 19 0 R /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> >>
+endobj
+xref
+0 21
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000163 00000 n 
+0000000260 00000 n 
+0000000362 00000 n 
+0000001395 00000 n 
+0000001531 00000 n 
+0000002487 00000 n 
+0000002623 00000 n 
+0000003664 00000 n 
+0000003801 00000 n 
+0000004700 00000 n 
+0000004838 00000 n 
+0000005621 00000 n 
+0000005759 00000 n 
+0000006527 00000 n 
+0000006665 00000 n 
+0000007473 00000 n 
+0000007611 00000 n 
+0000008340 00000 n 
+trailer
+<< /Size 21 /Root 1 0 R >>
+startxref
+8478
+%%EOF
