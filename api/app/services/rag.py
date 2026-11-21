@@ -1,58 +1,36 @@
 import re
 import uuid
 from collections.abc import AsyncIterator
-from dataclasses import dataclass
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.chunk import Chunk
+from app.core.config import get_settings
 from app.models.conversation import Conversation
-from app.models.document import Document
 from app.models.message import Message
+from app.services.confidence import NOT_FOUND_MARKER, NotFoundMarker, grade, is_follow_up, not_found_message
 from app.services.embeddings import embed_query
 from app.services.llm import REFUSAL_MESSAGE, StreamResult, stream_answer
+from app.services.retrieval import Retrieval, RetrievedChunk, retrieve
 
-TOP_K = 5             # how many chunks are given to Claude
 HISTORY_MESSAGES = 6  # how many earlier messages are sent along (3 questions + 3 answers)
+CLOSEST_PASSAGES = 3  # passages listed under a "not found" answer
 
 # Stays the same for every question, so it is the system prompt. The chunks go in the user message.
-SYSTEM_PROMPT = """You answer questions about the documents of one project.
+SYSTEM_PROMPT = f"""You answer questions about the documents of one project.
 
 Rules:
 - Use only the numbered passages inside <context>. Do not use outside knowledge.
-- If the passages do not contain the answer, say that you could not find it in this project's documents.
 - After each fact, cite the passage it comes from, like [1] or [2][3].
+- If a question has several parts and the passages answer only some, answer those and say which parts the documents \
+don't cover.
+- If the passages don't answer the question itself, even when they mention its topic, start your reply with \
+{NOT_FOUND_MARKER} on its own line, then say in one or two sentences that this project's documents don't cover it, \
+and briefly what they do say on the topic if that helps. Never guess.
 - Answer in the same language as the question. Be clear and concise."""
 
 
-@dataclass
-class RetrievedChunk:
-    content: str
-    page_number: int
-    document_id: uuid.UUID
-    filename: str
-
-
-# ---------- 1. Vector search ----------
-
-async def search_chunks(session: AsyncSession, project_id: uuid.UUID, question_vector: list[float]) -> list[RetrievedChunk]:
-    """The TOP_K chunks closest in meaning to the question, from this project's ready documents only."""
-    query = (
-        select(Chunk.content, Chunk.page_number, Chunk.document_id, Document.filename)
-        .join(Document, Document.id == Chunk.document_id)
-        # Project isolation: never search another project's chunks
-        .where(Chunk.project_id == project_id)
-        .where(Document.status == "ready")
-        # pgvector: smaller cosine distance = closer meaning
-        .order_by(Chunk.embedding.cosine_distance(question_vector))
-        .limit(TOP_K)
-    )
-    result = await session.execute(query)
-    return [RetrievedChunk(*row) for row in result.all()]
-
-
-# ---------- 2. Prompt ----------
+# ---------- Prompt ----------
 
 def build_context(chunks: list[RetrievedChunk]) -> str:
     """Numbered passages, so Claude can cite them as [1], [2]..."""
@@ -83,31 +61,54 @@ async def load_history(session: AsyncSession, conversation_id: uuid.UUID) -> lis
     return history
 
 
-# ---------- 3. Sources ----------
+# ---------- Sources ----------
+
+def source_of(passage: int, chunk: RetrievedChunk) -> dict:
+    """
+    What the browser needs to open a passage: the file, the page, and where the text is on it.
+    Stored as JSON, so the UUID becomes a string. `excerpt` is the passage itself: the viewer highlights it,
+    and shows it as is if it can't be found on the page.
+    """
+    return {
+        "passage": passage,
+        "document_id": str(chunk.document_id),
+        "filename": chunk.filename,
+        "page_number": chunk.page_number,
+        "chunk_id": chunk.chunk_id,
+        "char_start": chunk.char_start,
+        "char_end": chunk.char_end,
+        "excerpt": chunk.content,
+    }
+
 
 def cited_sources(answer: str, chunks: list[RetrievedChunk]) -> list[dict]:
     """
-    The sources the answer actually cites ([1], [3]...), without duplicates.
-    If Claude cited nothing (e.g. "I could not find it"), there are no sources.
+    The passages the answer actually cites ([1], [3]...), in order of first citation, without duplicates.
+    `passage` keeps the number used in the answer's text, so the browser can link each marker to its source.
+    If Claude cited nothing, there are no sources.
     """
-    cited_numbers = [int(n) for n in re.findall(r"\[(\d+)\]", answer)]
-
     sources = []
     seen = set()
-    for n in cited_numbers:
-        if not 1 <= n <= len(chunks):
-            continue  # Claude cited a passage that does not exist
-        chunk = chunks[n - 1]
-        key = (chunk.document_id, chunk.page_number)
-        if key in seen:
-            continue
-        seen.add(key)
-        # Stored as JSON, so the UUID becomes a string
-        sources.append({"document_id": str(chunk.document_id), "filename": chunk.filename, "page_number": chunk.page_number})
+    for n in (int(n) for n in re.findall(r"\[(\d+)\]", answer)):
+        if not 1 <= n <= len(chunks) or n in seen:
+            continue  # cited twice, or a passage that does not exist
+        seen.add(n)
+        sources.append(source_of(n, chunks[n - 1]))
     return sources
 
 
-# ---------- 4. The whole flow ----------
+def closest_sources(chunks: list[RetrievedChunk]) -> list[dict]:
+    """The best passages found, listed under a "not found" answer so the reader can check for themselves."""
+    return [source_of(n, chunk) for n, chunk in enumerate(chunks[:CLOSEST_PASSAGES], start=1)]
+
+
+# ---------- The whole flow ----------
+
+async def search(session: AsyncSession, project_id: uuid.UUID, text: str) -> Retrieval:
+    """The project's passages that best match `text` (hybrid search)."""
+    vector = await embed_query(text)
+    return await retrieve(session, project_id, text, vector, top_k=get_settings().retrieval_top_k)
+
 
 async def answer_question(
     session: AsyncSession, conversation: Conversation, question: str
@@ -116,6 +117,8 @@ async def answer_question(
     Saves the question and answers it from the project's documents.
 
     Yields the answer text piece by piece (str) while Claude writes it, then the saved answer (Message) last.
+    When the evidence is under the floor, Claude is not called: the answer is a "not found" message in the
+    question's language, with no pieces.
     """
     # History first, so it does not include the new question
     history = await load_history(session, conversation.id)
@@ -123,24 +126,50 @@ async def answer_question(
     session.add(Message(conversation_id=conversation.id, role="user", content=question))
     await session.commit()
 
-    question_vector = await embed_query(question)
-    chunks = await search_chunks(session, conversation.project_id, question_vector)
+    retrieval = await search(session, conversation.project_id, question)
+    confidence = grade(retrieval, question)
 
-    user_message = f"{build_context(chunks)}\n\nQuestion: {question}"
-    result = StreamResult()
-    pieces = []
-    async for text in stream_answer(SYSTEM_PROMPT, history + [{"role": "user", "content": user_message}], result):
-        pieces.append(text)
-        yield text
+    # A follow-up ("and the second one?") finds little on its own: it is searched again together with the
+    # previous question, and only skips Claude if that is under the floor too
+    previous_question = next((m["content"] for m in reversed(history) if m["role"] == "user"), None)
+    if confidence is None and previous_question and is_follow_up(question):
+        in_context = f"{previous_question}\n{question}"
+        retrieval = await search(session, conversation.project_id, in_context)
+        confidence = grade(retrieval, in_context)
+    chunks = retrieval.chunks
 
-    # Even the fallback model declined: save that instead of a cut-off answer
-    answer = REFUSAL_MESSAGE if result.refused else "".join(pieces).strip()
+    if confidence is None:
+        answer, not_found, sources = not_found_message(question), True, closest_sources(chunks)
+    else:
+        user_message = f"{build_context(chunks)}\n\nQuestion: {question}"
+        result = StreamResult()
+        marker = NotFoundMarker()
+        pieces = []
+        async for text in stream_answer(SYSTEM_PROMPT, history + [{"role": "user", "content": user_message}], result):
+            for piece in marker.feed(text):
+                pieces.append(piece)
+                yield piece
+        for piece in marker.finish():
+            pieces.append(piece)
+            yield piece
+
+        # Even the fallback model declined: save that instead of a cut-off answer
+        answer = REFUSAL_MESSAGE if result.refused else "".join(pieces).strip()
+        not_found = marker.found and not result.refused
+        if not_found:
+            sources = closest_sources(chunks)
+        elif result.refused:
+            sources = []
+        else:
+            sources = cited_sources(answer, chunks)
 
     assistant_message = Message(
         conversation_id=conversation.id,
         role="assistant",
         content=answer,
-        sources=cited_sources(answer, chunks),
+        sources=sources,
+        confidence=confidence or "low",
+        not_found=not_found,
     )
     session.add(assistant_message)
 

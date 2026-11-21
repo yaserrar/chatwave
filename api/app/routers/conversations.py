@@ -74,7 +74,9 @@ async def ask(
     Answers a question from the project's documents, streamed with Server-Sent Events (SSE):
 
     - `delta`: {"text": "..."}, a piece of the answer, as Claude writes it
-    - `done`:  the saved assistant message (MessageRead), with its sources. Always the last event.
+    - `done`:  the saved assistant message (MessageRead), with its sources, confidence and `not_found`.
+               Always the last event. When the documents clearly don't cover the question, Claude is not
+               called and `done` is the only event.
     - `error`: {"detail": "..."} if answering failed. Also the last event.
 
     The checks (owner, rate limit) run before the stream starts, so they still answer with a normal
