@@ -33,7 +33,7 @@ export function ConversationSwitcher({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="sm" className="-ml-2 min-w-0 gap-1.5 px-2 text-foreground">
+        <Button variant="ghost" size="sm" className="-ml-2 min-w-0 shrink gap-1.5 px-2 text-foreground">
           <span className="truncate font-medium">{active ? conversationLabel(active.title) : 'New conversation'}</span>
           <ArrowDown2 aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
         </Button>

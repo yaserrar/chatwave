@@ -50,6 +50,8 @@ export function useAsk(projectId: string) {
         role: 'assistant',
         content: '',
         sources: null,
+        confidence: null,
+        not_found: false,
         created_at: new Date().toISOString(),
       };
       // Puts `message` in place of the draft, or at the end the first time
@@ -75,6 +77,8 @@ export function useAsk(projectId: string) {
         role: 'user',
         content: question,
         sources: null,
+        confidence: null,
+        not_found: false,
         created_at: new Date().toISOString(),
       };
       qc.setQueryData<MessageDto[]>(key, (list) => [...(list ?? []), optimistic]);

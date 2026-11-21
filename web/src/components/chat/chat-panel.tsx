@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { Add, MagicStar, SidebarLeft, SidebarRight } from 'iconsax-react';
+import { CitationViewer, type ViewedSources } from '~/components/citations/citation-viewer';
 import { Logomark } from '~/components/layout/wordmark';
 import { ErrorState } from '~/components/shared/error-state';
 import { Button } from '~/components/ui/button';
@@ -9,7 +10,7 @@ import { STREAMING_PREFIX, useAsk, useConversations, useCreateConversation, useM
 import { useDocuments } from '~/hooks/documents';
 import { plural } from '~/lib/format';
 import { cn } from '~/lib/utils';
-import { AssistantMessage, ThinkingMessage, UserMessage } from './chat-messages';
+import { AssistantMessage, ThinkingMessage, UserMessage, type OpenSource } from './chat-messages';
 import { ChatComposer, type ChatComposerHandle } from './chat-composer';
 import { ConversationSwitcher } from './conversation-switcher';
 
@@ -45,6 +46,13 @@ export function ChatPanel({
   const contentRef = React.useRef<HTMLOListElement>(null);
   const followBottom = React.useRef(true);
   const previousConversation = React.useRef<string | null | undefined>(undefined);
+  // The citation being read. Kept while the viewer closes, so its content doesn't vanish mid-animation.
+  const [viewing, setViewing] = React.useState<ViewedSources | null>(null);
+  const [viewerOpen, setViewerOpen] = React.useState(false);
+  const openSource = React.useCallback<OpenSource>((sources, index) => {
+    setViewing({ sources, index });
+    setViewerOpen(true);
+  }, []);
 
   const activeId = selected === undefined ? (conversations.data?.[0]?.id ?? null) : selected;
   const messages = useMessages(activeId);
@@ -190,7 +198,11 @@ export function ChatPanel({
                 {message.role === 'user' ? (
                   <UserMessage message={message} />
                 ) : (
-                  <AssistantMessage message={message} streaming={message.id.startsWith(STREAMING_PREFIX)} />
+                  <AssistantMessage
+                    message={message}
+                    streaming={message.id.startsWith(STREAMING_PREFIX)}
+                    onOpenSource={openSource}
+                  />
                 )}
               </li>
             ))}
@@ -202,6 +214,14 @@ export function ChatPanel({
           </ol>
         )}
       </div>
+
+      <CitationViewer
+        projectId={projectId}
+        viewing={viewing}
+        open={viewerOpen}
+        onOpenChange={setViewerOpen}
+        onIndexChange={(index) => setViewing((current) => current && { ...current, index })}
+      />
 
       <footer className="border-t bg-surface/60 p-3">
         <div className={cn('flex flex-col gap-2', expanded && 'mx-auto w-full max-w-3xl')}>

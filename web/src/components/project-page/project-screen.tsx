@@ -118,7 +118,7 @@ export function ProjectScreen({ projectId }: { projectId: string }) {
 
       <div
         className={cn(
-          "grid flex-1 gap-6 px-4 py-3 sm:px-6 lg:min-h-0 lg:gap-8 lg:px-10 lg:py-6",
+          "grid flex-1 grid-cols-1 gap-6 px-4 py-3 sm:px-6 lg:min-h-0 lg:gap-8 lg:px-10 lg:py-6",
           chatExpanded
             ? "lg:grid-cols-1"
             : "lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)]",
